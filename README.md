@@ -1,2 +1,2 @@
 Collection of labs for practicing AWS Cloud.
-See instructions to create resources in AWS Console or see Terraform for using IaC
+See pdf instructions to create resources in AWS Console or see README.md for using IaC
