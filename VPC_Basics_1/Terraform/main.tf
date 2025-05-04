@@ -72,7 +72,7 @@ resource "aws_security_group" "web_sg" {
 }
 
 resource "aws_instance" "web_server" {
-  ami                    = "ami-009082a6cd90ccd0e" # Amazon Linux 2023 AMI 2023.7.20250428.1 x86_64 HVM kernel-6.1
+  ami                    = "ami-06d4d7b82ed5acff1" # Amazon Linux 2 AMI
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.web_sg.id]
