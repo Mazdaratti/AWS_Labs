@@ -1,7 +1,7 @@
 # Terraform block specifies required providers and backend configuration
 terraform {
   # Minimum Terraform version required
-  required_version = ">= 1.3.0"
+  required_version = ">= 1.8.0"
 
   # Define required providers and their versions
   required_providers {
@@ -36,6 +36,11 @@ provider "aws" {
   }
 }
 
+# Get available AZs in current region
+data "aws_availability_zones" "available" {
+  state = "available"  # Only show AZs that are available
+}
+
 # Network module creates the foundational networking components
 module "network" {
   source = "./modules/network"  # Path to the network module
@@ -45,5 +50,14 @@ module "network" {
   vpc_cidr            = var.vpc_cidr            # IP range for the entire VPC
   public_subnet_cidrs = var.public_subnet_cidrs # CIDRs for public subnets (ALB)
   private_subnet_cidrs = var.private_subnet_cidrs # CIDRs for private subnets (EC2)
-  availability_zones  = var.availability_zones  # Distribute across AZs for HA
+  availability_zones  = slice(data.aws_availability_zones.available.names, 0, 2)  # Automatically use 2 available AZs from the data source
+}
+
+# Security Groups module defines firewall rules
+module "security_groups" {
+  source = "./modules/security_groups"
+
+  vpc_id = module.network.vpc_id  # Get VPC ID from network module
+  my_ip  = var.my_ip              # Your public IP for SSH access
+  name_prefix = "alb-tutorial"    # Prefix for all security group names and tags
 }
