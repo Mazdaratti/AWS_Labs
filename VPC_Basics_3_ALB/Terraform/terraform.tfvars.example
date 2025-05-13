@@ -1,0 +1,16 @@
+# AWS region configuration
+aws_region = "us-east-1"  # North Virginia region
+
+# Your public IP for SSH access (replace with your actual IP)
+my_ip      = "123.45.67.89/32"
+
+# Network configuration
+vpc_name            = "alb-tutorial-vpc"  # Name for your VPC
+vpc_cidr            = "10.0.0.0/16"       # Large enough for all subnets
+
+# Public subnets (for ALB and NAT Gateway)
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]  # One per AZ
+
+# Private subnets (for EC2 instances)
+private_subnet_cidrs = ["10.0.3.0/24", "10.0.4.0/24"] # One per AZ
+
