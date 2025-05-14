@@ -130,9 +130,9 @@ This step-by-step tutorial will guide you through creating an Application Load B
 2. **Launch First Instance**:
    - Click "Launch Instances"
    - **Name**: `Web-Server-1`
-   - **AMI**: Amazon Linux 2 AMI (free tier eligible)
+   - **AMI**: Amazon Linux 2023 AMI (free tier eligible)
    - **Instance type**: t2.micro (free tier eligible)
-   - **Key pair**: Create new key pair named `ALB-KeyPair`
+   - **Key pair**: Create new key pair named `alb-tutorial-key`
    - **Network settings**:
      - VPC: `ALB-Tutorial-VPC`
      - Subnet: `ALB-Private-Subnet-1`
@@ -233,38 +233,97 @@ Congratulations! You've successfully created and tested an Application Load Bala
 
 ---
 
-## 🧱 Terraform Implementation (Outline)
+## 🧱 AWS ALB Terraform Deployment
 
-Split into modular files:
+**Overview**
 
+This Terraform project deploys a highly available web application architecture on AWS with:
+- Virtual Private Cloud (VPC) with public and private subnets
+- NAT Gateway for outbound internet access from private subnets
+- EC2 instances running Apache web server in private subnets
+- Application Load Balancer (ALB) in public subnets
+- Proper security groups restricting access
+
+**Structure**
 ```bash
-alb-terraform/
-├── main.tf
-├── variables.tf
-├── outputs.tf
-├── vpc.tf
-├── nat.tf
-├── ec2.tf
-├── alb.tf
-├── target_group.tf
-└── user_data.sh
+Terraform/
+├── main.tf                 # Primary configuration (calls modules)
+├── variables.tf            # Input variables for root module
+├── outputs.tf              # Output values for root module
+├── terraform.tfvars.example # Example variable values
+├── .gitignore             # Files to exclude from version control
+├── README.md              # Project documentation
+│
+└── modules/               # Reusable components
+    ├── network/
+    │   ├── main.tf        # VPC, subnets, routing
+    │   ├── variables.tf   # Network module inputs
+    │   └── outputs.tf     # Network module outputs
+    ├── security_groups/
+    │   ├── main.tf        # Security group definitions
+    │   ├── variables.tf
+    │   └── outputs.tf
+    ├── web_servers/
+    │   ├── main.tf        # EC2 instances configuration
+    │   ├── variables.tf
+    │   └── outputs.tf
+    └── alb/
+        ├── main.tf        # Load balancer resources
+        ├── variables.tf
+        └── outputs.tf
 ```
+**Prerequisites:**
 
-Each `.tf` file contains resources for its respective part of the stack.
+1. AWS Account: With programmatic access configured
+2. AWS CLI: Installed and configured with credentials
+3. Terraform: Version 1.3.0 or newer
 
-**Deploy steps:**
+**Deployment steps:**
 
-```bash
-terraform init
-terraform plan
-terraform apply
-```
+1. Clone the repository.
+2. Configure variables:
 
-**Clean up:**
+   - Copy terraform.tfvars.example to terraform.tfvars
+   - Edit with your specific values:
+
+    ```bash
+    aws_region = "us-east-1"
+    my_ip      = "your.public.ip"
+    ```
+3. Initialize Terraform:
+    ```bash
+    terraform init
+    ```
+4. Review execution plan:
+    ```bash
+    terraform plan
+    ```
+5. Deploy infrastructure:
+    ```bash
+    terraform apply
+    ```
+6. Access your application:
+
+    - After deployment completes, Terraform will output the ALB DNS name
+    - Open this URL in your web browser
+
+**Accessing Web Servers**
+
+Since instances are in private subnets:
+ 1. Recommended: Use AWS Systems Manager Session Manager
+ 2. Alternative: Set up a bastion host in a public subnet  
+
+**Cleaning up:**
 ```bash
 terraform destroy
 ```
+**Troubleshooting**
 
+    - ALB health checks failing: Verify web servers are running Apache
+
+    - No internet access from instances: Check NAT Gateway configuration
+
+    - SSH access issues: Verify your IP is correctly set in my_ip
 ---
 
 ## ✅ Summary
