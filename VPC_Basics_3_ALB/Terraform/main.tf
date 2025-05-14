@@ -1,5 +1,6 @@
-
-# Configure the AWS provider
+# =================
+# AWS PROVIDER CONFIG
+# =================
 provider "aws" {
   region = var.aws_region  # Use the region specified in variables
 
@@ -13,12 +14,11 @@ provider "aws" {
   }
 }
 
-# Get available AZs in current region
-data "aws_availability_zones" "available" {
-  state = "available"  # Only show AZs that are available
-}
 
-# Network module creates the foundational networking components
+# ================
+# NETWORK MODULE
+# ================
+# Creates VPC, subnets, route tables, NAT and internet gateway
 module "network" {
   source = "./modules/network"  # Path to the network module
 
@@ -30,13 +30,53 @@ module "network" {
   availability_zones  = slice(data.aws_availability_zones.available.names, 0, 2)  # Automatically use 2 available AZs from the data source
 }
 
-# Security Groups module defines firewall rules
+# ===================
+# SECURITY GROUPS MODULE
+# ===================
+# Defines firewall rules for ALB and EC2 instances
 module "security_groups" {
   source = "./modules/security_groups"
 
   vpc_id = module.network.vpc_id  # Get VPC ID from network module
   my_ip  = var.my_ip              # Your public IP for SSH access
   name_prefix = "alb-tutorial"    # Prefix for all security group names and tags
+}
+
+# =================
+# WEB SERVERS MODULE
+# =================
+# Creates EC2 instances with Apache web server
+module "web_servers" {
+  source = "./modules/web_servers"
+
+  instance_count     = var.instance_count     # Number of instances to launch
+  ami_id            = data.aws_ami.amazon_linux_2023.id  # Latest Amazon Linux 2 AMI
+  instance_type     = var.instance_type     # Instance size (t2.micro is free tier)
+  key_name          = aws_key_pair.alb_key.key_name  # SSH key for access
+  subnet_ids        = module.network.private_subnet_ids  # Place in private subnets
+  security_group_id = module.security_groups.web_server_sg_id  # Attach security group
+}
+
+# =========
+# ALB MODULE
+# =========
+# Creates Application Load Balancer and related resources
+module "alb" {
+  source = "./modules/alb"
+
+  name               = var.alb_name               # Name for the ALB
+  vpc_id             = module.network.vpc_id      # VPC to deploy in
+  subnet_ids         = module.network.public_subnet_ids  # Public subnets for ALB
+  security_group_id  = module.security_groups.alb_sg_id  # ALB security group
+  target_instance_ids = module.web_servers.instance_ids  # EC2 instances to target
+}
+
+# =====================
+# DATA SOURCES
+# =====================
+# Get available AZs in current region
+data "aws_availability_zones" "available" {
+  state = "available"  # Only show AZs that are available
 }
 
 # Data source to find the latest Amazon Linux 2023 AMI
@@ -66,6 +106,9 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
+# =====================
+# RESOURCES
+# =====================
 # Create an SSH key pair for EC2 instance access
 resource "tls_private_key" "alb_key" {
   algorithm = "RSA"
@@ -83,25 +126,3 @@ resource "local_file" "private_key" {
   file_permission = "0400" # Read-only for owner
 }
 
-# Web Servers module creates EC2 instances running Apache
-module "web_servers" {
-  source = "./modules/web_servers"
-
-  instance_count     = var.instance_count     # Number of instances to launch
-  ami_id            = data.aws_ami.amazon_linux_2023.id  # Latest Amazon Linux 2 AMI
-  instance_type     = var.instance_type     # Instance size (t2.micro is free tier)
-  key_name          = aws_key_pair.alb_key.key_name  # SSH key for access
-  subnet_ids        = module.network.private_subnet_ids  # Place in private subnets
-  security_group_id = module.security_groups.web_server_sg_id  # Attach security group
-}
-
-# ALB module creates the Application Load Balancer
-module "alb" {
-  source = "./modules/alb"
-
-  name               = var.alb_name               # Name for the ALB
-  vpc_id             = module.network.vpc_id      # VPC to deploy in
-  subnet_ids         = module.network.public_subnet_ids  # Public subnets for ALB
-  security_group_id  = module.security_groups.alb_sg_id  # ALB security group
-  target_instance_ids = module.web_servers.instance_ids  # EC2 instances to target
-}
