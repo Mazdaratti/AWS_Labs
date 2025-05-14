@@ -33,3 +33,22 @@ variable "private_subnet_cidrs" {
   type        = list(string)
 }
 
+# EC2 instance configuration
+variable "instance_count" {
+  description = "Number of EC2 instances to create (recommend 2 for high availability)"
+  type        = number
+  default     = 2
+}
+
+variable "instance_type" {
+  description = "EC2 instance type (t2.micro is free tier eligible)"
+  type        = string
+  default     = "t2.micro"
+}
+
+# ALB configuration
+variable "alb_name" {
+  description = "Name prefix for ALB resources (e.g., 'alb-tutorial')"
+  type        = string
+  default     = "alb-tutorial"
+}

@@ -1,26 +1,3 @@
-# Terraform block specifies required providers and backend configuration
-terraform {
-  # Minimum Terraform version required
-  required_version = ">= 1.8.0"
-
-  # Define required providers and their versions
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"  # Official AWS provider from HashiCorp
-      version = "~> 5.0"         # Use AWS provider version 5.x
-    }
-  }
-
-  # Remote backend configuration to store Terraform state
-  # This enables team collaboration and state locking
-  backend "s3" {
-    bucket         = "my-alb-tf-state"       # S3 bucket to store state
-    key            = "alb-tutorial/terraform.tfstate"  # Path to state file
-    region         = "us-east-1"             # AWS region for the bucket
-    dynamodb_table = "tf-lock-table"         # For state locking (prevent conflicts)
-    encrypt        = true                    # Encrypt state file at rest
-  }
-}
 
 # Configure the AWS provider
 provider "aws" {
@@ -60,4 +37,33 @@ module "security_groups" {
   vpc_id = module.network.vpc_id  # Get VPC ID from network module
   my_ip  = var.my_ip              # Your public IP for SSH access
   name_prefix = "alb-tutorial"    # Prefix for all security group names and tags
+}
+
+# Data source to find the latest Amazon Linux 2 AMI
+data "aws_ami" "amazon_linux" {
+  most_recent = true   # Get the newest AMI
+  owners      = ["amazon"]  # Only official Amazon AMIs
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]  # AMI naming pattern
+  }
+}
+
+# Create an SSH key pair for EC2 instance access
+resource "aws_key_pair" "alb_key" {
+  key_name   = "${var.alb_name}-key"  # Name for the key pair
+  public_key = file("~/.ssh/id_rsa.pub")  # Path to your public key file
+}
+
+# Web Servers module creates EC2 instances running Apache
+module "web_servers" {
+  source = "./modules/web_servers"
+
+  instance_count     = var.instance_count     # Number of instances to launch
+  ami_id            = data.aws_ami.amazon_linux.id  # Latest Amazon Linux 2 AMI
+  instance_type     = var.instance_type     # Instance size (t2.micro is free tier)
+  key_name          = aws_key_pair.alb_key.key_name  # SSH key for access
+  subnet_ids        = module.network.private_subnet_ids  # Place in private subnets
+  security_group_id = module.security_groups.web_server_sg_id  # Attach security group
 }
