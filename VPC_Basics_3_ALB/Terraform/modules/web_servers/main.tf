@@ -32,6 +32,6 @@ resource "aws_instance" "web" {
 
   # Resource tags for identification
   tags = {
-    Name = "${var.name_prefix}-web-server${count.index + 1}"  # Numbered instance names
+    Name = "${var.name_prefix}-Server${count.index + 1}"  # Numbered instance names
   }
 }

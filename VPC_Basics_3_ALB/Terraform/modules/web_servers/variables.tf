@@ -39,5 +39,5 @@ variable "security_group_id" {
 variable "name_prefix" {
   description = "Prefix for resource names (e.g., 'prod', 'dev')"
   type        = string
-  default     = "web"
+  default     = "Web"
 }
