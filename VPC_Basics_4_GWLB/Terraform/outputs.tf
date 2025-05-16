@@ -42,3 +42,13 @@ output "gwlb_arn" {
   description = "Gateway Load Balancer ARN"
   value       = module.gwlb.gwlb_arn
 }
+
+output "endpoint_service_name" {
+  description = "Gateway Load Balancer Endpoint Service Name"
+  value       = module.gwlb.endpoint_service_name
+}
+
+output "gwlbe_endpoint_id" {
+  description = "Gateway Load Balancer Endpoint ID"
+  value       = module.gwlbe.gwlbe_endpoint_id
+}
