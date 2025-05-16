@@ -37,3 +37,8 @@ output "app_instance_public_ip" {
   description = "App EC2 public IP (use to SSH)"
   value       = module.consumer_vpc.app_instance_public_ip
 }
+
+output "gwlb_arn" {
+  description = "Gateway Load Balancer ARN"
+  value       = module.gwlb.gwlb_arn
+}
