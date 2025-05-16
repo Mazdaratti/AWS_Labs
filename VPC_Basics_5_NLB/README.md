@@ -50,8 +50,8 @@ The initial setup is performed **manually through the AWS Console** to reinforce
                             │   Client   │
                             └─────┬──────┘
                                   │
-      AZ-A               ┌────────▼─────────┐              AZ-B
-         ┌───────────────▶ Internet Gateway ◀──────────────┐             
+      AZ-A               ┌────────▼─────────┐             AZ-B
+         ┌───────────────│ Internet Gateway │──────────────┐             
          │               └────────┬─────────┘              │
          │                        │                        │
   ┌──────┴───────┐       ┌────────▼─────────┐     ┌────────┴──────┐
