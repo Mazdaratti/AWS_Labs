@@ -39,3 +39,33 @@ variable "appliance_instance_type" {
   type        = string
   default     = "t2.micro"
 }
+
+# Consumer VPC vars
+variable "consumer_vpc_cidr" {
+  description = "CIDR block for the Consumer VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "consumer_app_subnet_cidr" {
+  description = "CIDR block for the App subnet in Consumer VPC"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "consumer_gwlbe_subnet_cidr" {
+  description = "CIDR block for the GWLBe subnet in Consumer VPC"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+
+variable "app_instance_type" {
+  description = "Instance type for the App EC2"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "ssh_allowed_cidr" {
+  description = "CIDR block allowed to SSH into App EC2"
+  type        = string
+}
