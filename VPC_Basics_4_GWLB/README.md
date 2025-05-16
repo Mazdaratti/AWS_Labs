@@ -94,7 +94,7 @@ The **Provider VPC** is divided into **three distinct subnets** to isolate resou
 │    CIDR: 192.168.0.0/16   │                            │        CIDR: 10.0.0.0/16       │
 │                           │                            │                                │
 │      ┌───────────────┐    │                            │  ┌──────────────────────────┐  │
-│      │     GWLB      │◀──────────────────────────────────▶│          GWLBe           │  │
+│      │     GWLB      │◀─────────────────────────────────▶│          GWLBe           │  │
 │      │  (Gateway LB) │    │         PrivateLink        │  │      (10.0.2.0/24)       │  │
 │      └───────▲───────┘    │                            │  │ Gateway Load Balancer EP │  │
 │              │            │                            │  └──────────────────────────┘  │
@@ -784,3 +784,219 @@ You have now successfully built, tested, and validated a fully working **Gateway
 * Bidirectional traffic flow
 
 This mirrors real-world patterns used in enterprises for **egress filtering**, **traffic logging**, and **compliance enforcement**.
+
+---
+
+## 🧱 Gateway Load Balancer Lab Terraform Deployment
+
+**Overview**
+
+This Terraform project deploys a multi-VPC Gateway Load Balancer architecture on AWS with:
+
+* **Provider VPC** containing private subnets for the security appliance and GWLB, plus a public subnet with NAT Gateway and Internet Gateway
+* **Consumer VPC** with public App subnet and private Gateway Load Balancer Endpoint (GWLBe) subnet
+* Security groups configured for secure traffic forwarding and GENEVE protocol (UDP 6081)
+* Gateway Load Balancer, Target Group, and Endpoint Service
+* Modular Terraform code for easy maintenance and scalability
+
+---
+
+**Structure**
+
+```bash
+terraform/
+├── main.tf                  # Root configuration tying modules together
+├── variables.tf             # Root input variables
+├── outputs.tf               # Root output definitions
+├── data.tf                  # Dynamic data sources (e.g., latest AMI, available AZ)
+├── terraform.tfvars.example # Example variable values
+├── README.md                # Project documentation
+│
+└── modules/                 # Reusable modules
+    ├── provider_vpc/
+    │   ├── main.tf          # Provider VPC, subnets, IGW, NAT Gateway, Security Appliance EC2, route tables, security groups
+    │   ├── variables.tf
+    │   └── outputs.tf
+    ├── consumer_vpc/
+    │   ├── main.tf          # Consumer VPC, subnets, IGW, App EC2, route tables, security groups
+    │   ├── variables.tf
+    │   └── outputs.tf
+    ├── gwlb/
+    │   ├── main.tf          # Gateway Load Balancer, target group, endpoint service
+    │   ├── variables.tf
+    │   └── outputs.tf
+    ├── gwlbe/
+    │   ├── main.tf          # Gateway Load Balancer Endpoint in consumer VPC
+    │   ├── variables.tf
+    │   └── outputs.tf
+    └── flow_logs/
+        ├── main.tf          # VPC Flow Logs: IAM role, CloudWatch group, subnet logs
+        ├── variables.tf
+        └── outputs.tf
+```
+
+---
+
+**Prerequisites:**
+
+1. AWS account with programmatic access configured
+2. AWS CLI installed and configured
+3. Terraform version 1.10 or newer
+
+---
+
+**Deployment steps:**
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repo-url>
+   cd terraform
+   ```
+
+2. Configure variables:
+
+   * Copy `terraform.tfvars.example` to `terraform.tfvars`
+   * Edit `terraform.tfvars` with your values, for example:
+
+   ```hcl
+   aws_region       = "us-east-1"
+   provider_vpc_cidr = "192.168.0.0/16"
+   consumer_vpc_cidr = "10.0.0.0/16"
+   # Override any other variables as needed
+   ```
+
+3. Initialize Terraform:
+
+   ```bash
+   terraform init
+   ```
+
+4. Review the execution plan (optional but recommended):
+
+   ```bash
+   terraform plan
+   ```
+
+5. Deploy the infrastructure:
+
+   ```bash
+   terraform apply
+   ```
+
+   Confirm by typing `yes` when prompted.
+
+6. After deployment, check Terraform outputs for useful info such as the public IP of the App EC2 instance.
+
+---
+
+## 📡 VPC Flow Logs for Visual Traffic Inspection
+
+To help you **validate and visualize traffic flow** across your inspection architecture — especially since you cannot SSH into the Security Appliance — this project includes a dedicated **Terraform module** to enable **VPC subnet-level Flow Logs**.
+
+These logs help confirm traffic flow through each hop in the inspection chain:
+
+* App EC2 instance (in Consumer VPC)
+* Gateway Load Balancer Endpoint (GWLBe)
+* Gateway Load Balancer (GWLB)
+* Security Appliance EC2 (in Provider VPC)
+* NAT Gateway (for internet-bound access)
+
+---
+
+### 🛠️ How It Works
+
+The `flow_logs` module provisions:
+
+* A dedicated **CloudWatch Log Group**: `/vpc/flow-logs/<vpc_name>`
+* An **IAM Role** with inline policy permissions for VPC Flow Logs to publish to CloudWatch
+* Subnet-level flow logs on the following:
+
+  * App subnet (consumer VPC)
+  * GWLBe subnet (consumer VPC)
+  * GWLB subnet (provider VPC)
+  * Security Appliance subnet (provider VPC)
+  * NAT/public subnet (provider VPC)
+
+This enables **fine-grained visibility** into each point where traffic is intercepted, routed, inspected, and forwarded — without needing to SSH into any internal component.
+
+---
+
+### 🔍 Viewing Logs in CloudWatch Logs Insights
+
+1. Go to **AWS Console > CloudWatch > Logs Insights**
+2. Select the log group:
+   `/vpc/flow-logs/provider-vpc`
+3. Run this query (replace with your App EC2's private IP):
+
+   ```sql
+   fields @timestamp, interfaceId, srcAddr, dstAddr, action, protocol, bytes
+   | filter srcAddr = "<App EC2 private IP>"
+   | sort @timestamp desc
+   ```
+
+   This will show traffic originating from your application and moving through the network.
+
+4. To see all traffic sorted by source and destination:
+   ```sql
+   fields @timestamp, interfaceId, srcAddr, dstAddr, action, protocol, bytes
+   | sort @timestamp desc
+   | limit 50
+   ```
+
+---
+
+### 🧪 How to Test It
+
+1. SSH into **App EC2**
+
+2. Run:
+
+   ```bash
+   curl -I http://example.com
+   ```
+
+3. Return to **CloudWatch Logs Insights**
+
+4. Filter by the App EC2’s private IP to trace its traffic path
+
+✅ You should see:
+
+* Traffic **accepted**
+* Source and destination addresses
+* Subnet interface IDs
+
+✅ You’re Now Observing Real Flow Logs
+
+This setup is enterprise-grade and production-like. No SSH into the appliance needed. You’re inspecting traffic invisibly through AWS-native observability.
+
+---
+
+**Cleaning up:**
+
+```bash
+terraform destroy
+```
+
+Confirm with `yes` to delete all resources.
+
+---
+
+**Troubleshooting**
+
+* If the App EC2 can’t access the internet, check NAT Gateway and route table configurations
+* If GWLB health checks fail, verify security groups allow UDP 6081 traffic
+* If SSH access fails, confirm your IP is whitelisted in the security group
+
+---
+
+## ✅ Summary
+
+You have deployed a real-world Gateway Load Balancer inspection architecture with:
+
+* Modular, reusable Terraform code
+* Multi-VPC setup with proper subnet segmentation
+* Secure inspection and routing of outbound traffic
+* Fully automated provisioning and easy cleanup
+
+This is a strong foundation for building secure and scalable network inspection systems on AWS.
