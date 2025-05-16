@@ -43,31 +43,28 @@ The initial setup is performed **manually through the AWS Console** to reinforce
 
 ---
 
-### 🖼️ ASCII Diagram (Simplified)
+## 📊 Architecture Diagram
 
 ```text
                             ┌────────────┐
                             │   Client   │
                             └─────┬──────┘
                                   │
-      AZ-A               ┌────────▼────────┐             AZ-B
-         ┌──────────────▶│ Internet Gateway│◀────────────┐             
-         │               └────────┬────────┘             │
-         │                        │                      │
-  ┌─────────────┐ ┌───────────────▼──────────────┐ ┌──────────────┐
-  │ Public Sub B│ │     Network Load Balancer    │ │ Public Sub B │
-  │ NAT Gateway │ │         Public Subnets       │ │ NAT Gateway  │
-  └─────────────┘ └───────┬──────────────┬───────┘ └──────────────┘
-      ▲                   │              │                     ▲
-      │                   │              │                     │
-      │     ┌─────────────┘              └───────────────┐     │
-      │     │                                            │     │
- ┌──────────▼───┐                                   ┌────▼─────────┐
- │ Private Sub A│                                   │ Private Sub B│
- │  EC2 Web App │                                   │ EC2 Web App  │
- └──────────────┘                                   └──────────────┘
-
-
+      AZ-A               ┌────────▼─────────┐              AZ-B
+         ┌───────────────▶ Internet Gateway ◀──────────────┐             
+         │               └────────┬─────────┘              │
+         │                        │                        │
+  ┌──────┴───────┐       ┌────────▼─────────┐     ┌────────┴──────┐
+  │ Public Sub B │       │   Network Load   │     │ Public Sub B  │
+  │ NAT Gateway  │       │     Balancer     │     │ NAT Gateway   │
+  └──────▲───────┘       └────────┬─────────┘     └────────▲──────┘
+         │                        │                        │
+         │      ┌─────────────────┴─────────────────┐      │
+         │      │                                   │      │
+  ┌──────┴──────▼──┐                             ┌──▼──────┴──────┐
+  │ Private Sub A  │                             │ Private Sub B  │
+  │  EC2 Web App   │                             │  EC2 Web App   │
+  └────────────────┘                             └────────────────┘
 ```
 
 ---
@@ -620,8 +617,68 @@ Congrats! You’ve successfully deployed and tested an **internet-facing Network
 
 ---
 
+Great, Andrey — let’s begin with the Terraform layout and module structure for your **Network Load Balancer (NLB) Lab**.
 
+Below is the section you can directly add to your `README.md` under the **Terraform Implementation** part:
 
+---
+
+## 🧱 Terraform Project Structure – NLB Lab
+
+This Terraform project mirrors the manual setup of a **Network Load Balancer architecture** with private EC2 instances. It follows **modular best practices**, promoting reuse and maintainability.
+
+---
+
+### 📁 Project Directory Layout
+
+```bash
+Terraform/
+├── main.tf                      # Root module: orchestrates all submodules
+├── variables.tf                 # Input variables for the root module
+├── outputs.tf                   # Outputs from root module
+├── data.tf                      # Dynamic values (AZs, AMI)
+├── terraform.tfvars.example     # Example variable values
+├── README.md                    # Project documentation
+│
+└── modules/                     # Reusable infrastructure components
+    ├── vpc/
+    │   ├── main.tf              # VPC + public/private subnets + IGW
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │
+    ├── nat_gateway/
+    │   ├── main.tf              # NAT Gateway + EIP + route table
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │
+    ├── ec2_instances/
+    │   ├── main.tf              # EC2s in private subnets with Apache + user_data
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │
+    ├── security_groups/
+    │   ├── main.tf              # SGs for EC2 and NLB
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │
+    └── nlb/
+        ├── main.tf              # Network Load Balancer + target group + listener
+        ├── variables.tf
+        └── outputs.tf
+```
+
+---
+
+### 📂 Root Module (Orchestration)
+
+The root module is responsible for:
+
+* Calling all submodules in the correct order
+* Supplying input variables (via `terraform.tfvars`)
+* Fetching dynamic data (AZs, latest AMI) using `data.tf`
+* Managing outputs
+
+---
 
 
 
