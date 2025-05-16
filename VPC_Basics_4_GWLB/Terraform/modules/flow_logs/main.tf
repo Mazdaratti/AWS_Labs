@@ -48,16 +48,17 @@ resource "aws_iam_role_policy" "flow_logs_policy" {
 }
 
 resource "aws_flow_log" "subnet_flow_logs" {
-  for_each = toset(var.subnet_ids)
+  for_each = var.subnets
 
+  subnet_id            = each.value.id
   log_destination      = aws_cloudwatch_log_group.vpc_flow_logs.arn
   iam_role_arn         = aws_iam_role.flow_logs_role.arn
   traffic_type         = "ALL"
   log_destination_type = "cloud-watch-logs"
-  subnet_id = each.value
+
 
 
   tags = {
-    Name = "${var.vpc_name}-${each.value}-flow-log"
+    Name = "${var.vpc_name}-${each.key}-flow-log"
   }
 }

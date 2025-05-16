@@ -3,7 +3,9 @@ variable "vpc_name" {
   type        = string
 }
 
-variable "subnet_ids" {
-  description = "List of subnet IDs to enable flow logs for"
-  type        = list(string)
+variable "subnets" {
+  type = map(object({
+    id = string
+  }))
+  description = "Map of subnets where keys are logical names and values contain subnet IDs"
 }

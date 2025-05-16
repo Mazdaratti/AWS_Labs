@@ -94,7 +94,7 @@ The **Provider VPC** is divided into **three distinct subnets** to isolate resou
 │    CIDR: 192.168.0.0/16   │                            │        CIDR: 10.0.0.0/16       │
 │                           │                            │                                │
 │      ┌───────────────┐    │                            │  ┌──────────────────────────┐  │
-│      │     GWLB      │◀─────────────────────────────────▶│          GWLBe           │  │
+│      │     GWLB      │◀─────────────────────────────────▶ │          GWLBe           │  │
 │      │  (Gateway LB) │    │         PrivateLink        │  │      (10.0.2.0/24)       │  │
 │      └───────▲───────┘    │                            │  │ Gateway Load Balancer EP │  │
 │              │            │                            │  └──────────────────────────┘  │

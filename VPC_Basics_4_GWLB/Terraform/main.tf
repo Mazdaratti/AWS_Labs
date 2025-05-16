@@ -59,11 +59,11 @@ module "gwlbe" {
 module "flow_logs" {
   source     = "./modules/flow_logs"
   vpc_name   = "provider-vpc"
-  subnet_ids = [
-    module.consumer_vpc.app_subnet_id,
-    module.consumer_vpc.gwlbe_subnet_id,
-    module.provider_vpc.appliance_subnet_id,
-    module.provider_vpc.gwlb_subnet_id,
-    module.provider_vpc.public_subnet_id
-  ]
+  subnets = {
+    consumer_app    = { id = module.consumer_vpc.app_subnet_id }
+    consumer_gwlbe = { id = module.consumer_vpc.gwlbe_subnet_id }
+    provider_app    = { id = module.provider_vpc.appliance_subnet_id }
+    provider_gwlb   = { id = module.provider_vpc.gwlb_subnet_id }
+    provider_public = { id = module.provider_vpc.public_subnet_id }
+  }
 }
