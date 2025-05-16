@@ -54,3 +54,16 @@ module "gwlbe" {
   endpoint_service_name = module.gwlb.endpoint_service_name
   endpoint_service_id  = module.gwlb.endpoint_service_id
 }
+
+# --- Flow Logs module ---
+module "flow_logs" {
+  source     = "./modules/flow_logs"
+  vpc_name   = "provider-vpc"
+  subnet_ids = [
+    module.consumer_vpc.app_subnet_id,
+    module.consumer_vpc.gwlbe_subnet_id,
+    module.provider_vpc.appliance_subnet_id,
+    module.provider_vpc.gwlb_subnet_id,
+    module.provider_vpc.public_subnet_id
+  ]
+}
