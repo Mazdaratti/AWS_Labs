@@ -32,3 +32,14 @@ module "consumer_vpc" {
   key_name              = var.key_name
   ssh_allowed_cidr      = var.ssh_allowed_cidr
 }
+
+# --- GWLB module ---
+module "gwlb" {
+  source = "./modules/gwlb"
+
+  vpc_name             = "provider-vpc"
+  vpc_id               = module.provider_vpc.vpc_id
+  gwlb_subnet_id       = module.provider_vpc.gwlb_subnet_id
+  appliance_instance_id = module.provider_vpc.appliance_instance_id
+  allowed_principals   = [] # Optionally add ARNs that can create endpoints
+}
