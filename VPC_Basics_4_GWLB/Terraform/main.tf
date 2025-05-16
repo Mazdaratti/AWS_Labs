@@ -16,3 +16,19 @@ module "provider_vpc" {
   appliance_instance_type = var.appliance_instance_type
   key_name                = var.key_name
 }
+
+# --- Consumer VPC module ---
+module "consumer_vpc" {
+  source = "./modules/consumer_vpc"
+
+  vpc_name              = "consumer-vpc"
+  vpc_cidr              = var.consumer_vpc_cidr
+  app_subnet_cidr       = var.consumer_app_subnet_cidr
+  gwlbe_subnet_cidr     = var.consumer_gwlbe_subnet_cidr
+
+  availability_zone     = data.aws_availability_zones.available.names[0]
+  app_ami               = data.aws_ami.amazon_linux_2023.id
+  app_instance_type     = var.app_instance_type
+  key_name              = var.key_name
+  ssh_allowed_cidr      = var.ssh_allowed_cidr
+}
