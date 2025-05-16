@@ -1,41 +1,53 @@
-variable "aws_region" {
-  description = "AWS region to deploy into"
+variable "vpc_name" {
+  description = "Name tag for the VPC"
   type        = string
-  default     = "us-east-1"
+  default     = "provider-vpc"
 }
 
-# Provider VPC Variables
-variable "key_name" {
-  description = "Name of the existing AWS EC2 key pair for SSH"
-  type        = string
-}
-
-variable "provider_vpc_cidr" {
-  description = "CIDR block for the provider VPC"
+variable "vpc_cidr" {
+  description = "CIDR block for Provider VPC"
   type        = string
   default     = "192.168.0.0/16"
 }
 
-variable "provider_appliance_subnet_cidr" {
-  description = "CIDR block for provider appliance subnet"
+variable "appliance_subnet_cidr" {
+  description = "CIDR block for Appliance subnet"
   type        = string
   default     = "192.168.1.0/24"
 }
 
-variable "provider_gwlb_subnet_cidr" {
-  description = "CIDR block for provider GWLB subnet"
+variable "gwlb_subnet_cidr" {
+  description = "CIDR block for GWLB subnet"
   type        = string
   default     = "192.168.2.0/24"
 }
 
-variable "provider_public_subnet_cidr" {
-  description = "CIDR block for provider public (NAT/IGW) subnet"
+variable "public_subnet_cidr" {
+  description = "CIDR block for public subnet"
   type        = string
   default     = "192.168.3.0/24"
 }
 
+variable "availability_zone" {
+  description = "Availability Zone for all subnets"
+  type        = string
+  default     = "us-east-1a"
+}
+
+variable "appliance_ami" {
+  description = "AMI ID for the appliance EC2 instance"
+  type        = string
+  default     = "ami-0abcdef1234567890" # placeholder, update with Amazon Linux 2023 AMI in your region
+}
+
 variable "appliance_instance_type" {
-  description = "EC2 instance type for security appliance"
+  description = "Instance type for the appliance EC2"
   type        = string
   default     = "t2.micro"
+}
+
+variable "key_name" {
+  description = "Key pair name for SSH access"
+  type        = string
+  default     = null
 }
