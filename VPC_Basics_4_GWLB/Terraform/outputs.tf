@@ -52,3 +52,8 @@ output "gwlbe_endpoint_id" {
   description = "Gateway Load Balancer Endpoint ID"
   value       = module.gwlbe.gwlbe_endpoint_id
 }
+
+output "flow_logs_log_group" {
+  description = "VPC Flow Logs Log Group"
+  value       = module.flow_logs.log_group_name
+}
