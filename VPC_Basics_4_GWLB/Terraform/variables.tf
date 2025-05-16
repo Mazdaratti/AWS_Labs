@@ -69,3 +69,9 @@ variable "ssh_allowed_cidr" {
   description = "CIDR block allowed to SSH into App EC2"
   type        = string
 }
+
+variable "allowed_principals" {
+  description = "List of ARNs allowed to connect to the Gateway Load Balancer Endpoint Service"
+  type        = list(string)
+  default     = []
+}
