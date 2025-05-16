@@ -276,7 +276,7 @@ Terraform/
 
 1. AWS Account: With programmatic access configured
 2. AWS CLI: Installed and configured with credentials
-3. Terraform: Version 1.3.0 or newer
+3. Terraform: Version 1.10.0 or newer
 
 **Deployment steps:**
 
