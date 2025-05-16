@@ -1,0 +1,17 @@
+# Required values to customize your deployment
+
+aws_region = "us-east-1"
+
+key_name = "your-existing-key-pair"
+
+# Optional: override default CIDRs
+provider_vpc_cidr              = "192.168.0.0/16"
+provider_appliance_subnet_cidr = "192.168.1.0/24"
+provider_gwlb_subnet_cidr      = "192.168.2.0/24"
+provider_public_subnet_cidr    = "192.168.3.0/24"
+
+consumer_vpc_cidr           = "10.0.0.0/16"
+consumer_app_subnet_cidr    = "10.0.1.0/24"
+consumer_gwlbe_subnet_cidr  = "10.0.2.0/24"
+
+ssh_allowed_cidr = "YOUR_PUBLIC_IP/32"
