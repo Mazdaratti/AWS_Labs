@@ -9,7 +9,7 @@ backend.tf
 .terraform.lock.hcl
 
 # Sensitive variable files
-terraform.tfvars
+Terraform/terraform.tfvars
 *.auto.tfvars
 
 # Ignore personal credentials
