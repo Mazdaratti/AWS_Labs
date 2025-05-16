@@ -43,3 +43,14 @@ module "gwlb" {
   appliance_instance_id = module.provider_vpc.appliance_instance_id
   allowed_principals   = [] # Optionally add ARNs that can create endpoints
 }
+
+# --- GWLBE module ---
+module "gwlbe" {
+  source = "./modules/gwlbe"
+
+  vpc_name             = "consumer-vpc"
+  consumer_vpc_id      = module.consumer_vpc.vpc_id
+  gwlbe_subnet_id      = module.consumer_vpc.gwlbe_subnet_id
+  endpoint_service_name = module.gwlb.endpoint_service_name
+  endpoint_service_id  = module.gwlb.endpoint_service_id
+}
