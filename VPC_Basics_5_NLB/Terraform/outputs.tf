@@ -32,3 +32,8 @@ output "nlb_sg_id" {
   value       = module.security_groups.nlb_sg_id
   description = "Security Group ID for the NLB"
 }
+
+output "nlb_dns_name" {
+  value       = module.nlb.nlb_dns_name
+  description = "Public DNS name of the Network Load Balancer"
+}
