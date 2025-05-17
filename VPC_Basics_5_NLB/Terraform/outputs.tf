@@ -22,3 +22,13 @@ output "nat_eip" {
   value       = module.nat_gateway.nat_eip
   description = "Public IP of the NAT Gateway"
 }
+
+output "ec2_sg_id" {
+  value       = module.security_groups.ec2_sg_id
+  description = "Security Group ID for EC2 instances"
+}
+
+output "nlb_sg_id" {
+  value       = module.security_groups.nlb_sg_id
+  description = "Security Group ID for the NLB"
+}
