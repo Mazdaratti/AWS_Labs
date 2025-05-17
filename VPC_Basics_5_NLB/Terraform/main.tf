@@ -47,3 +47,15 @@ module "ec2_instances" {
   key_name            = var.key_name
   instance_name_prefix = "${var.vpc_name}-web"
 }
+
+# =====================
+# NLB Module
+# =====================
+module "nlb" {
+  source             = "./modules/nlb"
+  vpc_id             = module.vpc.vpc_id
+  vpc_name           = var.vpc_name
+  instance_ids       = module.ec2_instances.instance_ids
+  public_subnet_ids  = module.vpc.public_subnet_ids
+  security_group_id  = module.security_groups.nlb_sg_id
+}
