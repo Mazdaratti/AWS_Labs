@@ -34,3 +34,16 @@ module "security_groups" {
   vpc_name           = var.vpc_name
   ssh_allowed_cidr   = var.ssh_allowed_cidr
 }
+
+# =====================
+# EC2 Instances Module
+# =====================
+module "ec2_instances" {
+  source              = "./modules/ec2_instances"
+  ami_id              = data.aws_ami.amazon_linux_2023.id
+  instance_type       = var.instance_type
+  private_subnet_ids  = module.vpc.private_subnet_ids
+  security_group_id   = module.security_groups.ec2_sg_id
+  key_name            = var.key_name
+  instance_name_prefix = "${var.vpc_name}-web"
+}
