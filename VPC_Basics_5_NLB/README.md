@@ -676,6 +676,131 @@ The root module is responsible for:
 
 ---
 
+Thank you, Andrey — here's the completed and refined **Terraform section** of your `README.md`, continuing exactly from your latest version.
+
+---
+
+### 📦 Modules Overview
+
+| Module             | Purpose                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `vpc/`             | Creates the VPC, public/private subnets across AZs, and Internet Gateway                                                |
+| `nat_gateway/`     | Provisions a NAT Gateway with Elastic IP in a public subnet and creates a private route table with default route to NAT |
+| `security_groups/` | Creates SGs for EC2 (HTTP from NLB, SSH from your IP) and NLB (HTTP from the internet)                                  |
+| `ec2_instances/`   | Launches Apache web servers into private subnets with user data and a key pair                                          |
+| `nlb/`             | Deploys an Internet-facing Network Load Balancer, target group, and TCP listener to route to EC2 targets                |
+
+---
+
+### 🔄 Dynamic Features
+
+* **Availability Zones** and **Amazon Linux 2023 AMI** are pulled dynamically using `data.tf`
+* Public and private subnet counts are fully configurable via root variables
+* EC2 instances are distributed across AZs automatically
+* All modules are self-contained and reusable
+* **Security groups reference each other** (e.g., NLB SG → EC2 SG) for controlled traffic flow
+
+---
+
+### 🚀 Deployment Steps
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/Mazdaratti/AWS_Labs
+   cd VPC_Basics_5_NLB/Terraform
+   ```
+
+2. **Copy and configure input variables**
+
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit region, subnets, key_name, your IP, etc.
+   ```
+
+3. **Initialize the project**
+
+   ```bash
+   terraform init
+   ```
+
+4. **Review the execution plan**
+
+   ```bash
+   terraform plan
+   ```
+
+5. **Deploy the infrastructure**
+
+   ```bash
+   terraform apply
+   ```
+
+6. **Get the NLB DNS name**
+   Output will look like:
+
+   ```bash
+   nlb_dns_name = "NLB-Tutorial-VPC-nlb-xyz.elb.amazonaws.com"
+   ```
+
+---
+
+### 🧪 Testing the NLB
+
+After apply:
+
+* Visit the DNS name in your browser, or run:
+
+  ```bash
+  curl http://<nlb_dns_name>
+  ```
+
+* You should see responses like:
+
+  ```
+  Hello World from ip-10-0-3-11.ec2.internal
+  Hello World from ip-10-0-4-23.ec2.internal
+  ```
+
+* Reload multiple times to confirm the NLB is **balancing traffic** across both instances in private subnets.
+
+---
+
+### 🧼 Cleanup (Optional)
+
+To remove all resources created by Terraform:
+
+```bash
+terraform destroy
+```
+
+Make sure to confirm the prompt to proceed with the destruction.
+
+---
+
+Here’s your final **✅ Summary** block for the README.md, written to match your format and tone:
+
+---
+
+### ✅ Summary
+
+In this lab, you learned how to deploy a complete **Network Load Balancer (NLB) architecture** using both the AWS Console and **modular Terraform**.
+
+You built and tested a production-style setup that includes:
+
+* A custom VPC with public and private subnets across multiple AZs
+* Internet Gateway for public subnets and a NAT Gateway for private ones
+* Security groups restricting access to EC2s and exposing only the NLB
+* EC2 web servers installed with Apache and auto-scaled across private subnets
+* A highly available **Network Load Balancer** distributing traffic to EC2 instances
+* Dynamic infrastructure configuration using Terraform modules and best practices
+
+This is a strong foundational lab for building scalable, secure, and cloud-native applications on AWS.
+
+---
+
+
+
 
 
 
