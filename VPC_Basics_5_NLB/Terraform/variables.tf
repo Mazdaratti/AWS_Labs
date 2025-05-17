@@ -27,3 +27,14 @@ variable "ssh_allowed_cidr" {
   description = "Your IP in CIDR format to allow SSH access to EC2"
   type        = string
 }
+
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "key_name" {
+  description = "Name of the existing EC2 key pair for SSH"
+  type        = string
+}
