@@ -676,10 +676,6 @@ The root module is responsible for:
 
 ---
 
-Thank you, Andrey — here's the completed and refined **Terraform section** of your `README.md`, continuing exactly from your latest version.
-
----
-
 ### 📦 Modules Overview
 
 | Module             | Purpose                                                                                                                 |
