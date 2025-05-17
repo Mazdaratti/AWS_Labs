@@ -22,3 +22,8 @@ variable "private_subnet_cidrs" {
   description = "List of CIDR blocks for private subnets"
   type        = list(string)
 }
+
+variable "ssh_allowed_cidr" {
+  description = "Your IP in CIDR format to allow SSH access to EC2"
+  type        = string
+}
