@@ -617,9 +617,11 @@ Congrats! You’ve successfully deployed and tested an **internet-facing Network
 
 ---
 
-## 🧱 Terraform Project Structure – NLB Lab
+## 🛠️ Terraform Infrastructure as Code (IaC) – NLB Lab
 
-This Terraform project mirrors the manual setup of a **Network Load Balancer architecture** with private EC2 instances. It follows **modular best practices**, promoting reuse and maintainability.
+This project uses **modular Terraform** to provision the same architecture built manually through the AWS Console. It follows **best practices** for clarity, reuse, and scalability.
+
+
 
 ---
 
