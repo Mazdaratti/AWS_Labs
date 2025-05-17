@@ -617,12 +617,6 @@ Congrats! You’ve successfully deployed and tested an **internet-facing Network
 
 ---
 
-Great, Andrey — let’s begin with the Terraform layout and module structure for your **Network Load Balancer (NLB) Lab**.
-
-Below is the section you can directly add to your `README.md` under the **Terraform Implementation** part:
-
----
-
 ## 🧱 Terraform Project Structure – NLB Lab
 
 This Terraform project mirrors the manual setup of a **Network Load Balancer architecture** with private EC2 instances. It follows **modular best practices**, promoting reuse and maintainability.
