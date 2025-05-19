@@ -46,15 +46,6 @@ module "endpoints" {
   region          = var.region
 }
 
-
-
-
-
-
-
-
-
-
 # =====================
 # -------- S3 ---------
 # =====================
@@ -62,4 +53,15 @@ module "s3" {
   source          = "./modules/s3"
   bucket_name     = var.bucket_name
   vpc_endpoint_id = module.endpoints.s3_endpoint_id
+}
+
+# =====================
+# ------ EC2_SSM ------
+# =====================
+module "ec2_ssm" {
+  source        = "./modules/ec2_ssm"
+  vpc_name      = var.vpc_name
+  instance_type = var.instance_type
+  subnet_id     = module.vpc.private_subnet_id
+  ec2_sg_id     = module.security_groups.ec2_sg_id
 }
