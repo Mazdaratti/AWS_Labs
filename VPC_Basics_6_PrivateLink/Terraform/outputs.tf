@@ -47,3 +47,13 @@ output "ssmmessages_endpoint_id" {
   description = "Interface endpoint for SSM Messages"
   value       = module.endpoints.ssmmessages_endpoint_id
 }
+
+output "instance_id" {
+  description = "SSM-managed EC2 instance ID"
+  value       = module.ec2_ssm.instance_id
+}
+
+output "instance_private_ip" {
+  description = "Private IP of EC2"
+  value       = module.ec2_ssm.instance_private_ip
+}
