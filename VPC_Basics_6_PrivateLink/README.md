@@ -171,16 +171,79 @@ We’ll set up public routing for the public subnet only.
 
 ---
 
-### 🪣 1.5 Create S3 Bucket for Testing
+## 📦 Step 1.5: Create an S3 Bucket for Testing
 
-1. Open the **S3 Console**
+To test `aws s3` CLI from your EC2 instances, we’ll create a simple public S3 bucket.
+
+> 🔄 Later in the Terraform section, we’ll use a **secure setup** with a **private bucket** and VPC endpoint policies.
+
+---
+
+### 🧰 Create the Bucket
+
+1. Go to the **S3 Console**
+
 2. Click **Create bucket**
+
 3. Configure:
 
-   * **Bucket name**: `privatelink-tutorial-bucket` (must be globally unique)
-   * Region: same as your VPC (e.g., `us-east-1`)
-4. Leave all other defaults (block public access enabled, versioning off)
+   * **Bucket name**: `privatelink-lab-bucket` (or your custom name)
+   * **Region**: Same as your VPC (e.g., `us-east-1`)
+
+4. Under **Block Public Access**:
+
+   * 🔓 **Uncheck**: “Block all public access”
+   * Confirm the warning checkbox
+
 5. Click **Create bucket**
+
+---
+
+### 🔐 Attach a Simple Public Bucket Policy
+
+After creating the bucket:
+
+1. Go to **Permissions** tab
+2. Under **Bucket Policy**, paste the following:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowPublicReadWrite",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::privatelink-lab-bucket",
+        "arn:aws:s3:::privatelink-lab-bucket/*"
+      ]
+    }
+  ]
+}
+```
+
+> Replace `privatelink-lab-bucket` with your actual bucket name if different.
+
+✅ This allows both **public** and **private** EC2 instances to access the bucket without needing IAM roles or VPC endpoint policies.
+
+---
+
+### 💡 Pro Tip: This Is Not Secure for Real-World Use
+
+We’re making the bucket public **only for learning purposes**.
+
+In production, you should:
+
+* ✅ Keep the bucket **private**
+* ✅ Assign **IAM roles** to EC2 instances
+* ✅ Restrict bucket access using:
+
+  * `aws:SourceVpce` (to only allow traffic via your VPC endpoint)
+  * IAM conditions like `aws:SourceArn` or `aws:SourceAccount`
+
+We’ll implement all of this securely in the **Terraform section** of this lab.
 
 ---
 
@@ -319,5 +382,165 @@ You now have:
 | `private-ec2` | `privatelink-private-subnet` | ❌         | Endpoint test   |
 
 Next, we'll **SSH into the public EC2**, try AWS CLI commands, and then **hop into the private EC2** to test how endpoints behave.
+
+---
+
+## 🧪 Step 3: Connectivity Testing Before VPC Endpoints
+
+In this step, we'll verify which operations succeed and fail **before** we configure any VPC endpoints.
+
+We will:
+
+1. SSH into the **public EC2** using your key and SSH agent forwarding
+2. Test:
+
+   * Internet access from **public** and **private** EC2
+   * AWS CLI calls (`aws s3 ls`, etc.)
+3. Confirm that private EC2 **cannot** access public internet or AWS APIs (yet)
+
+---
+
+### 🔑 3.1 SSH into Public EC2 (with Key + Agent Forwarding)
+
+To connect securely and later hop into the private EC2, use this **combined SSH command**:
+
+```bash
+ssh -A -i /path/to/privatelink-ec2-key.pem ec2-user@<public-ec2-public-ip>
+```
+
+**Explanation:**
+
+* `-i`: Authenticates to public EC2 using your `.pem` key
+* `-A`: Enables **agent forwarding**, allowing you to SSH into private EC2 without copying the key
+
+✅ Result: You’re now inside `public-ec2` with secure credentials forwarded.
+
+---
+
+### 🌍 3.2 Test Internet + AWS CLI from Public EC2
+
+From inside the `public-ec2`:
+
+```bash
+curl http://example.com
+```
+
+✅ This should work — proving it has internet via the Internet Gateway.
+
+Then try:
+
+```bash
+aws s3 ls
+aws ec2 describe-instances --region <your-region>
+```
+
+✅ These also work — the CLI uses the public internet to reach AWS APIs.
+
+> 🔎 If you see `Unable to locate credentials`, that's fine for now — we'll assign IAM roles in the next step.
+
+---
+
+### 🔁 3.3 SSH from Public EC2 into Private EC2
+
+1. From your AWS Console, get the **private IP** of `private-ec2`
+2. From inside the **public EC2 terminal**, run:
+
+```bash
+ssh ec2-user@<private-ec2-private-ip>
+```
+
+✅ Because your local key was forwarded, you’ll connect without needing to upload the `.pem` file.
+
+> 💡 This works only because we used `-A` earlier. Your local machine handles key verification behind the scenes.
+
+---
+
+### 🔍 3.4 Test Internet + AWS CLI from Private EC2
+
+Now inside the **private EC2**:
+
+```bash
+curl http://example.com
+```
+
+❌ This will **fail** — there’s no Internet Gateway or NAT Gateway.
+
+Now try AWS CLI:
+
+```bash
+aws s3 ls
+aws ec2 describe-instances --region <your-region>
+```
+
+❌ These also fail — there are **no VPC endpoints** to reach AWS services.
+
+---
+
+### ✅ Step 3: Result Summary
+
+| Test                         | Public EC2  | Private EC2                |
+|------------------------------|-------------|----------------------------|
+| `curl http://example.com`    | ✅           | ❌                          |
+| `aws s3 ls`                  | ✅           | ❌                          |
+| `aws ec2 describe-instances` | ✅           | ❌                          |
+| SSH access                   | ✅ (from PC) | ✅ (via public EC2 + agent) |
+
+---
+
+### 💡 Pro Tip: What is SSH Agent Forwarding?
+
+**Agent forwarding** allows you to authenticate through a bastion (public EC2) into private EC2s **without uploading your key**.
+
+* `-A` forwards your local SSH agent into the first EC2
+* When you SSH to a second EC2, your local machine handles the key verification
+* No need to copy `.pem` files — more secure and cleaner
+
+✅ Perfect for test labs and jump-box-based access.
+
+---
+
+## 🔐 Step 4 (Optional for Console Setup): Assign IAM Role for Secure Access
+
+In a real-world scenario, your EC2 instances should **never rely on public S3 buckets** or embedded access keys.
+
+Instead, you attach an **IAM role** to give them secure, scoped permissions.
+
+---
+
+### ⚠️ In This Lab (Console Setup)
+
+- We’re using a **public S3 bucket** for simplicity
+- That means IAM roles are **not required** to access the bucket or run `aws s3` commands
+- You can **skip this step for now**
+
+---
+
+### 🔐 In Production / Terraform Section
+
+We’ll assign IAM roles like:
+- `AmazonS3FullAccess`
+- `AmazonEC2ReadOnlyAccess`
+
+To allow:
+- Access to private S3 buckets
+- Communication with EC2 and SSM APIs through **VPC interface endpoints**
+- No need to store AWS credentials on the instance
+
+---
+
+💡 **Pro Tip: IAM Role vs Public Bucket**
+
+| Use Case            | Public S3 Bucket | Private S3 + IAM Role |
+|---------------------|------------------|-----------------------|
+| Easy testing (lab)  | ✅                | ❌                     |
+| Secure environments | ❌                | ✅                     |
+| Terraform version   | ❌                | ✅                     |
+
+---
+
+
+
+
+
 
 
