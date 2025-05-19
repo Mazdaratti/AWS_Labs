@@ -1,6 +1,7 @@
 # Example input values for PrivateLink Lab
 
 region        = "us-east-1"
+vpc_name      = "privatelink-lab-vpc"
 vpc_cidr      = "10.0.0.0/16"
 subnet_cidr   = "10.0.1.0/24"
 bucket_name   = "privatelink-lab-demo-bucket-1234"  # <-- must be globally unique
