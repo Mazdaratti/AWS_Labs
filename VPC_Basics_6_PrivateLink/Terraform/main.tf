@@ -33,7 +33,9 @@ module "security_groups" {
   subnet_cidr  = var.subnet_cidr
 }
 
-# --- VPC Endpoints ---
+# =====================
+# --- Endpoints ---
+# =====================
 module "endpoints" {
   source          = "./modules/endpoints"
   vpc_name        = var.vpc_name
@@ -43,6 +45,7 @@ module "endpoints" {
   endpoint_sg_id  = module.security_groups.endpoint_sg_id
   region          = var.region
 }
+
 
 
 
