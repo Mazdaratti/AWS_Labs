@@ -1,0 +1,17 @@
+# Required: AWS region
+region = "us-east-1"
+
+# Optional: Custom bucket name (defaults to auto-generated)
+# bucket_name = "my-private-bucket"
+
+# Optional: Allowed IP for emergency SSH (if modifying SGs later)
+# allowed_ip = "123.45.67.89/32"
+
+# Optional: Instance type (default: t2.micro)
+# instance_type = "t2.small"
+
+# Optional: Tags
+# tags = {
+#   Project   = "privatelink-lab"
+#   Terraform = "true"
+# }
