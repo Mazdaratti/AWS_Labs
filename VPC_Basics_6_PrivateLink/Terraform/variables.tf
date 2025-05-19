@@ -17,3 +17,8 @@ variable "subnet_cidr" {
   description = "CIDR block for the private subnet"
   type        = string
 }
+
+variable "bucket_name" {
+  description = "Globally unique name for the S3 bucket"
+  type        = string
+}
