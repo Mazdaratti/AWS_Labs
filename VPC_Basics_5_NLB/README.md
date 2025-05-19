@@ -621,8 +621,6 @@ Congrats! You’ve successfully deployed and tested an **internet-facing Network
 
 This project uses **modular Terraform** to provision the same architecture built manually through the AWS Console. It follows **best practices** for clarity, reuse, and scalability.
 
-
-
 ---
 
 ### 📁 Project Directory Layout
