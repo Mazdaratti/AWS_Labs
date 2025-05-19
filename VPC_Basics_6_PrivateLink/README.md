@@ -811,14 +811,10 @@ Ensure that:
 
 ---
 
-Understood! Here’s the **refocused Terraform section** for your `README.md`, emphasizing PrivateLink mechanics (without NLB comparisons) and clarifying the EC2 API endpoint choice:
-
----
-
 ## 🌩️ Terraform Deployment: PrivateLink Lab
 
 ### 🔒 **What You’ll Automate**  
-This Terraform project demonstrates **AWS PrivateLink** by creating:  
+This Terraform project demonstrates **AWS PrivateLink** to securely access AWS services (S3, SSM) from isolated EC2 instances without using the public internet by creating:  
 - A **private EC2 instance** (no public IP)  
 - **VPC endpoints** for SSM (Interface) and S3 (Gateway)  
 - A **private S3 bucket** accessible only via the endpoint  
@@ -866,15 +862,16 @@ Terraform/
 ### 🧱 **Core Components**  
 
 #### 1. **VPC Endpoints (PrivateLink)**  
-| Endpoint Type | Service                    | Purpose                            |  
-|---------------|----------------------------|------------------------------------|  
-| **Interface** | `com.amazonaws.region.ssm` | Allows SSM sessions to private EC2 |  
-| **Gateway**   | `com.amazonaws.region.s3`  | Private S3 access without internet |  
+| Endpoint Type | Service                      | Purpose                            |  
+|---------------|------------------------------|------------------------------------|  
+| **Interface** | `com.amazonaws.<region>.ssm` | Allows SSM sessions to private EC2 |  
+| **Gateway**   | `com.amazonaws.<region>.s3`  | Private S3 access without internet |  
 
 > 🔍 **Why Only SSM (Not EC2 API)?**  
 > - **SSM is sufficient**: It handles both management *and* CLI access via `start-session`  
 > - **Reduced complexity**: EC2 API endpoint isn’t needed just to manage the instance  
 > - **Cost optimization**: Fewer endpoints = lower cost  
+> - **Best practice**: SSM is the recommended way to manage EC2 in private networks
 
 #### 2. **Private EC2 Instance**  
 - **No SSH/key pair**: Uses IAM role `AmazonSSMManagedInstanceCore`  
@@ -924,7 +921,7 @@ resources:
     • IAM role:
       - AmazonSSMManagedInstanceCore
       - AmazonS3FullAccess (for upload testing)
-    • user_data: Simple web server
+    • user_data: Simple Apache web server (serves index.html used in upload test)
 outputs:
   - instance_id
   - instance_private_ip
@@ -934,9 +931,9 @@ outputs:
 ```hcl
 # Purpose: Enable private AWS API access
 resources:
-  - SSM Interface Endpoint (com.amazonaws.region.ssm)
-  - SSM Messages Endpoint (com.amazonaws.region.ssmmessages) # required for interactive SSM sessions (like start-session)
-  - S3 Gateway Endpoint (com.amazonaws.region.s3)
+  - SSM Interface Endpoint (com.amazonaws.<region>.ssm)
+  - SSM Messages Endpoint (com.amazonaws.<region>.ssmmessages) # required for interactive SSM sessions (like start-session)
+  - S3 Gateway Endpoint (com.amazonaws.<region>.s3)
   - Endpoint security group (HTTPS only)
 outputs:
   - ssm_endpoint_id
@@ -952,6 +949,7 @@ resources:
   - Bucket policy:
     • Deny all non-VPC endpoint traffic
     • Allow only from private subnet
+    • Enforces access **only through Gateway Endpoint**, even if internet exists
   - Test file (via null_resource)
 outputs:
   - bucket_name
@@ -961,13 +959,15 @@ outputs:
 
 ### 🔄 Key Differences from Console Lab
 
-| Component      | Console Method             | Terraform Approach                 |
-|----------------|----------------------------|------------------------------------|
-| **EC2 Access** | SSH via bastion            | **SSM-only** (no SSH keys)         |
-| **S3 Access**  | Public bucket              | **Private + endpoint policy**      |
-| **Network**    | Public/private subnets     | **Private-only** architecture      |
-| **Testing**    | Manual CLI checks          | **Auto-validated** endpoint access |
-| **Security**   | Open temporary permissions | **Least-privilege IAM/SGs**        |
+| Component         | Console Method             | Terraform Approach                 |
+|-------------------|----------------------------|------------------------------------|
+| **EC2 Access**    | SSH via bastion            | **SSM-only** (no SSH keys)         |
+| **S3 Access**     | Public bucket              | **Private + endpoint policy**      |
+| **Network**       | Public/private subnets     | **Private-only** architecture      |
+| **Testing**       | Manual CLI checks          | **Auto-validated** endpoint access |
+| **Security**      | Open temporary permissions | **Least-privilege IAM/SGs**        |
+| **Access Method** | SSH with key pair          | **SSM Agent**                      |
+
 
 ---
 
@@ -993,6 +993,9 @@ outputs:
    ```
 
 4. **Connect via SSM**:
+
+   💡 Make sure your AWS CLI is configured and authenticated (`aws configure`), and that the region matches your tfvars.
+
    ```bash
    aws ssm start-session --target $(terraform output -raw instance_id)
    ```
@@ -1013,7 +1016,7 @@ outputs:
    echo "Test file" > test.txt
    aws s3 cp test.txt s3://$(terraform output -raw bucket_name)/
    ```
-2. **Automated Test** (in Terraform):
+2. **Automated Upload Test** (optional):
 
    ```hcl
    resource "null_resource" "test_upload" {
@@ -1044,7 +1047,7 @@ outputs:
    - Encrypted sessions with CloudWatch logging  
 
 3. **S3 Security**:  
-   - Bucket policy denies all non-VPC endpoint traffic  
+   - Bucket policy denies all non-VPC endpoint traffic — protects against accidental exposure even with public internet access. 
 
 ---
 
