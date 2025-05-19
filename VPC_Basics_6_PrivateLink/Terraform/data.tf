@@ -1,3 +1,7 @@
+# =====================
+# Data Sources
+# =====================
+
 # Latest Amazon Linux 2023 AMI
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
@@ -30,7 +34,7 @@ data "aws_availability_zones" "available" {
 }
 
 # Current AWS caller identity (for bucket naming)
-data "aws_caller_identity" "current" {}
+#data "aws_caller_identity" "current" {}
 
 # AWS region (for endpoint configuration)
-data "aws_region" "current" {}
+#data "aws_region" "current" {}
