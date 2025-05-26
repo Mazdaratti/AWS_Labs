@@ -36,7 +36,7 @@ resource "aws_iam_instance_profile" "ec2_ssm_profile" {
 # EC2 Instance (No SSH)
 # =====================
 resource "aws_instance" "private_ec2" {
-  ami                         = data.aws_ami.amazon_linux_2023.id
+  ami                         = var.ami_id
   instance_type               = var.instance_type
   subnet_id                   = var.subnet_id
   vpc_security_group_ids      = [var.ec2_sg_id]
@@ -45,9 +45,8 @@ resource "aws_instance" "private_ec2" {
 
   user_data = <<-EOF
     #!/bin/bash
-    echo "Hello from Private EC2" > /var/www/html/index.html
-    chown ec2-user:ec2-user /var/www/html/index.html
-    chmod 644 /var/www/html/index.html
+    echo "Hello from PRIVATE EC2" > /home/ec2-user/private-upload.txt
+    chmod 644 /home/ec2-user/private-upload.txt
   EOF
 
   tags = {
