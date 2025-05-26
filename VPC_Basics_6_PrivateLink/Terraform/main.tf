@@ -17,10 +17,11 @@ provider "aws" {
 # --- VPC Module ---
 # =====================
 module "vpc" {
-  source       = "./modules/vpc"
-  vpc_name     = var.vpc_name
-  vpc_cidr     = var.vpc_cidr
-  subnet_cidr  = var.subnet_cidr
+  source            = "./modules/vpc"
+  availability_zone = data.aws_availability_zones.available.names[0]
+  vpc_name          = var.vpc_name
+  vpc_cidr          = var.vpc_cidr
+  subnet_cidr       = var.subnet_cidr
 }
 
 # =====================
@@ -51,6 +52,7 @@ module "endpoints" {
 # =====================
 module "s3" {
   source          = "./modules/s3"
+  deployer_arn = var.deployer_arn
   bucket_name     = var.bucket_name
   vpc_endpoint_id = module.endpoints.s3_endpoint_id
 }
@@ -60,8 +62,27 @@ module "s3" {
 # =====================
 module "ec2_ssm" {
   source        = "./modules/ec2_ssm"
+  ami_id        = data.aws_ami.amazon_linux_2023.id
   vpc_name      = var.vpc_name
   instance_type = var.instance_type
   subnet_id     = module.vpc.private_subnet_id
   ec2_sg_id     = module.security_groups.ec2_sg_id
+}
+
+# =====================
+# ---Automated Test----
+# =====================
+resource "null_resource" "s3_upload_test" {
+  triggers = {
+    instance_id = module.ec2_ssm.instance_id
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      aws ssm start-session \
+        --target ${module.ec2_ssm.instance_id} \
+        --document-name "AWS-StartInteractiveCommand" \
+        --parameters command='["aws s3 cp /home/ec2-user/private-upload.txt s3://${module.s3.bucket_name}/private-upload.txt"]'
+    EOT
+  }
 }
