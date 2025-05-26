@@ -20,20 +20,37 @@ resource "aws_s3_bucket_policy" "endpoint_restricted" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid       = "AllowVPCOnlyAccess"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
-        Resource = [
+        Sid: "AllowAccessFromVpcEndpoint",
+        Effect: "Allow",
+        Principal: "*",
+        Action: "s3:*",
+        Resource: [
           "${aws_s3_bucket.this.arn}",
           "${aws_s3_bucket.this.arn}/*"
-        ]
-        Condition = {
-          StringNotEquals = {
-            "aws:SourceVpce" = var.vpc_endpoint_id
+        ],
+        Condition: {
+          StringEquals: {
+            "aws:SourceVpce": var.vpc_endpoint_id
+          }
+        }
+      },
+      {
+        Sid: "AllowConsoleUser",
+        Effect: "Allow",
+        Principal: "*",
+        Action: "s3:*",
+        Resource: [
+          "${aws_s3_bucket.this.arn}",
+          "${aws_s3_bucket.this.arn}/*"
+        ],
+        Condition: {
+          StringEquals: {
+            "aws:PrincipalArn": var.deployer_arn
           }
         }
       }
     ]
   })
 }
+
+
