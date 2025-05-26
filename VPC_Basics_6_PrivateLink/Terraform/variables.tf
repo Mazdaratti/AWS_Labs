@@ -28,3 +28,8 @@ variable "instance_type" {
   type        = string
   default     = "t2.micro"
 }
+
+variable "deployer_arn" {
+  description = "ARN of the IAM user or role running Terraform (for exempting from S3 policy deny)"
+  type        = string
+}
