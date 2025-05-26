@@ -38,7 +38,7 @@ We’ll simulate both failure and success scenarios by testing connectivity:
 | S3 Bucket      | Used to test access over Gateway Endpoint                                |
 | EC2 Instances  | One in public subnet, one in private subnet                              |
 | VPC Endpoints  | Interface endpoint for EC2 API, SSM (terraform); Gateway endpoint for S3 |
-| IAM Roles      | Attach permissions for SSM and S3 to private EC2                         |
+| IAM Roles      | Attach permissions for EC2, SSM and S3 to private EC2                    |
 
 ---
 
@@ -75,7 +75,7 @@ We’ll simulate both failure and success scenarios by testing connectivity:
      │     Public Subnet     │                │     Private Subnet    │          
      │                       │                │                       │          
      │  ┌───────────────┐    │                │   ┌───────────────┐   │          
-     │  │  EC2 Instance │    ───────────────────► │  EC2 Instance │   │
+     │  │  EC2 Instance │   ───────────────────►  │  EC2 Instance │   │
      │  │               │    │      SSH       │   │               │   │
      │  └───────────────┘    │                │   └───────────────┘   │
      └───────────────────────┘                └───────────────────────┘
@@ -90,18 +90,27 @@ In this step, we’ll build the network foundation and the S3 bucket used for te
 
 ---
 
-### 🧱 1.1 Create the VPC
+### 🧱 1.1 Create the VPC (with DNS for PrivateLink)
 
-1. Open the **AWS Console**
+1. Open the **AWS Console**, search for and open **VPC**
 2. In the search bar, type **VPC**, and select **VPC Dashboard**
-3. Click **Create VPC**
-4. Choose **VPC only**
-5. Configure:
+3. In the left menu, select Your VPCs
+4. Click **Create VPC**
+5. Choose **VPC only** (not the wizard)
+6. Configure:
 
-   * **Name tag**: `Privatelink-Tutorial-VPC`
-   * **IPv4 CIDR block**: `10.0.0.0/16`
-   * Leave all other defaults (no IPv6, no DNS changes)
+| Field                     | Value                        |
+|---------------------------|------------------------------|
+| **Name tag**              | `Privatelink-Tutorial-VPC`   |
+| **IPv4 CIDR block**       | `10.0.0.0/16`                |
+| **Enable DNS hostnames**  | ✅ Enabled (very important!)  |
+| **Enable DNS resolution** | ✅ Enabled (very important!)  |
+
 6. Click **Create VPC**
+
+💡 Pro Tip: Why DNS Matters for PrivateLink?
+Interface Endpoints (like for EC2 API or SSM) rely on DNS to map AWS service domains to VPC ENIs.
+If DNS hostnames and resolution are disabled, endpoints will silently fail to resolve.
 
 ---
 
@@ -112,24 +121,26 @@ We’ll create **two subnets in the same AZ**:
 * A **Public Subnet** for bastion/testing
 * A **Private Subnet** for endpoint testing
 
-#### Public Subnet
+#### 📥 Public Subnet
 
-1. In the **VPC Dashboard**, go to **Subnets**
-2. Click **Create Subnet**
-3. Configure:
+1. In the **VPC Console**, go to **SubnetsSubnets > Create subnet**
+2. Configure:
 
    * **Name tag**: `privatelink-public-subnet`
    * **VPC**: `Privatelink-Tutorial-VPC`
    * **Availability Zone**: Choose one (e.g., `us-east-1a`)
    * **IPv4 CIDR block**: `10.0.1.0/24`
-4. Click **Create subnet**
+3. Click **Create subnet**
 
-#### Private Subnet
+#### 🔐 Private Subnet
 
 Repeat the steps above with:
 
 * **Name tag**: `privatelink-private-subnet`
 * **CIDR block**: `10.0.2.0/24`
+* Use the same AZ
+
+💡 Staying in one AZ keeps this lab simple and avoids cross-AZ data transfer costs.
 
 ---
 
@@ -147,9 +158,11 @@ Repeat the steps above with:
 
 ### 🚦 1.4 Configure Route Tables
 
-We’ll set up public routing for the public subnet only.
+We’ll now configure:
+* A public route table (with internet access)
+* A private route table (required for S3 Gateway Endpoint)
 
-#### Public Route Table
+#### 🛣 Public Route Table
 
 1. Go to **Route Tables**
 2. Click **Create route table**
@@ -157,7 +170,7 @@ We’ll set up public routing for the public subnet only.
 
    * **Name tag**: `privatelink-public-rt`
    * **VPC**: `Privatelink-Tutorial-VPC`
-4. Click **Create**
+4. Click **Create route table**
 5. Select the route table > **Routes** > **Edit routes**
 6. Add route:
 
@@ -167,7 +180,19 @@ We’ll set up public routing for the public subnet only.
 8. Go to **Subnet associations** > **Edit subnet associations**
 9. Select `privatelink-public-subnet` and click **Save**
 
-#### (No need for private route table changes yet — endpoints will route locally)
+### 🔒 Private Route Table (for Private EC2)
+
+1. Go to **Route Tables**
+2. Click **Create route table**
+3. Configure:
+
+   * **Name tag**: `privatelink-private-rt`
+   * **VPC**: `Privatelink-Tutorial-VPC`
+4. Click **Create route table**
+5. Go to **Subnet associations** > **Edit subnet associations**
+6. Select `privatelink-private-subnet` and click **Save**
+
+📌 Leave the routes default (local only) for now — the S3 Gateway Endpoint will add itself later.
 
 ---
 
@@ -249,18 +274,23 @@ We’ll implement all of this securely in the **Terraform section** of this lab.
 
 ✅ Done! You now have:
 
-* A VPC with 1 public and 1 private subnet
-* Public subnet routed via IGW
+* A VPC with DNS fully enabled
+* 1 public and 1 private subnet
+* Two route tables (public + private) correctly associated
 * S3 bucket for endpoint testing
 
 ---
 
 ## 🚀 Step 2: Launch EC2 Instances in Public and Private Subnets
 
-We’ll launch **two EC2 instances** (Amazon Linux 2023), one in each subnet:
+We will:
 
-* The **public EC2** will act as a bastion/test client
-* The **private EC2** will simulate a no-internet environment for endpoint testing
+1. Create IAM roles with scoped permissions
+2. Create separate security groups for public and private EC2
+3. Launch two EC2 instances:
+
+   * The **public EC2** will act as a bastion/test client
+   * The **private EC2** will simulate a no-internet environment for endpoint testing
 
 ---
 
@@ -276,80 +306,144 @@ If you don’t already have an SSH key pair:
    * **Name**: `privatelink-ec2-key`
    * **Key pair type**: RSA
    * **Private key format**: `.pem`
-5. Click **Create key pair** (your browser will download the `.pem` file)
+5. Click **Create key pair** — your browser will download the `.pem` file
 
 ✅ Keep this file safe — you’ll need it to SSH into the public instance.
 
 ---
 
-### 🛡 2.2 Create a Security Group
+### 🔐 2.2 Create IAM Roles for EC2
 
-We’ll allow SSH and HTTP for testing.
+We’ll assign **IAM roles** to each instance at launch, granting only the permissions they need.
 
-1. Go to **Security Groups**
-2. Click **Create security group**
-3. Configure:
+#### 🔧 Public EC2 Role
 
-   * **Name**: `privatelink-ec2-sg`
-   * **VPC**: `Privatelink-Tutorial-VPC`
-4. Under **Inbound Rules**, add:
+1. Go to **IAM > Roles** → **Create role**
+2. **Trusted entity**: Choose `AWS service` → Use case: **EC2**
+3. Click **Next**
+4. Attach the following AWS-managed policy:
 
-   * Type: `SSH`, Source: `My IP`
-   * Type: `HTTP`, Source: `0.0.0.0/0`
-5. Leave **Outbound** as default (all traffic allowed)
-6. Click **Create security group**
+   * ✅ `AmazonEC2ReadOnlyAccess`
+   * ✅ `AmazonS3FullAccess`
+5. Click **Next**
+6. Name it: `public-ec2-role`
+   Add tag (optional): `Lab = PrivateLink`
+7. Click **Create role**
 
 ---
 
-### 💻 2.3 Launch Public EC2 Instance
+#### 🔧 Private EC2 Role
 
-1. Go to **EC2 > Instances** > Click **Launch instance**
-2. Configure:
+1. Create another role following the same steps.
+2. Name it: `private-ec2-role`
 
-   * **Name**: `public-ec2`
-   * **AMI**: Amazon Linux 2023
-   * **Instance type**: `t2.micro`
-   * **Key pair**: Select `privatelink-ec2-key`
-3. In **Network settings**:
+💡 **Pro Tip:**
+
+> These roles avoid the need for embedded credentials and let you test IAM-based access to AWS services through VPC endpoints.
+>  We use the same policies for both instances to allow S3 uploads and EC2 metadata queries. This mimics common cloud automation scenarios.
+   
+---
+
+### 🛡 2.3 Create Separate Security Groups
+
+We’ll create **dedicated security groups** for each EC2:
+
+#### 🔒 Public EC2 Security Group
+
+1. Go to **EC2 > Security Groups**
+2. Click **Create security group**
+3. Name: `public-ec2-sg`
+4. VPC: `Privatelink-Tutorial-VPC`
+5. Inbound rules:
+
+   * Type: `SSH` → Source: `My IP` (for SSH access)
+   * Type: `HTTP` → Source: `0.0.0.0/0`(optional — useful for future SSM testing)
+6. Outbound rules:
+   
+   * Leave as default:
+      * Type: All traffic; Destination: 0.0.0.0/0
+
+7. Click **Create security group**
+
+✅ This allows full internet access from the public EC2 — required for updates, S3, AWS CLI, etc.
+
+#### 🔒 Private EC2 Security Group
+
+1. Create another SG:
+2. Name: `private-ec2-sg`
+3. VPC: Same
+4. Inbound rules:
+
+   * Type: `SSH` → Source: `public-ec2-sg` (for SSH jump via bastion)
+   * Type: `HTTPS` → Source: `10.0.2.0/24` (Your private subnet's CIDR block)
+5. Outbound rules:
+
+   * Type: `HTTPS` → Source: `0.0.0.0/0`
+6. Click **Create**
+
+💡 **Pro Tip:**
+
+> This ensures private EC2 is **not accessible from the internet**, but is accessible **from the public EC2** using SSH and from endpoint ENI inside private subnet
+
+💡 **Why restrict outbound on private EC2?**
+
+ - EC2 needs outbound HTTPS to talk to:
+   - Interface Endpoints (e.g., EC2 API, SSM)
+   - S3 via Gateway Endpoint
+ - No need for full outbound access — this is least privilege.
+
+---
+
+### 💻 2.4 Launch Public EC2 Instance
+
+1. Go to **EC2 > Instances** → **Launch instance**
+
+2. Name: `public-ec2`
+
+3. AMI: **Amazon Linux 2023**
+
+4. Instance type: `t2.micro`
+
+5. Key pair: `privatelink-ec2-key`
+
+6. Network settings:
 
    * VPC: `Privatelink-Tutorial-VPC`
    * Subnet: `privatelink-public-subnet`
    * Auto-assign public IP: **Enabled**
-   * Security Group: Select `privatelink-ec2-sg`
-4. Under **Advanced details**, paste the following User Data:
+   * Security group: `public-ec2-sg`
 
-    ```bash
-    #!/bin/bash
-    dnf update -y
-    dnf install -y awscli httpd
-    systemctl start httpd
-    systemctl enable httpd
-    echo "Hello from PUBLIC EC2" > /var/www/html/index.html
-    ```
+7. Advanced details:
 
-5. Click **Launch instance**
+   * IAM Instance profile: `public-ec2-role`
+   * User data:
+
+     ```bash
+     #!/bin/bash
+     echo "Hello from PUBLIC EC2" > /home/ec2-user/public-upload.txt
+     chmod 644 /home/ec2-user/public-upload.txt
+     ```
+
+8. Click **Launch instance**
 
 ---
 
-### 🛑 2.4 Launch Private EC2 Instance
+### 🛑 2.5 Launch Private EC2 Instance
 
-Repeat the same steps as above with the following changes:
+Repeat the steps above with changes:
 
-* **Name**: `private-ec2`
-* **Subnet**: `privatelink-private-subnet`
-* **Auto-assign public IP**: **Disabled**
-* **User Data**:
+* Name: `private-ec2`
+* Subnet: `privatelink-private-subnet`
+* Auto-assign public IP: **Disabled**
+* Security group: `private-ec2-sg`
+* IAM Instance profile: `private-ec2-role`
+* User data:
 
-```bash
-#!/bin/bash
-dnf update -y
-dnf install -y awscli httpd
-systemctl start httpd
-systemctl enable httpd
-echo "Hello from PRIVATE EC2" > /var/www/html/index.html
-```
-
-✅ Launch it with the same security group and key pair.
+  ```bash
+  #!/bin/bash
+  echo "Hello from PRIVATE EC2" > /home/ec2-user/private-upload.txt
+  chmod 644 /home/ec2-user/private-upload.txt
+  ```
 
 ---
 
@@ -366,6 +460,7 @@ This will pre-fill all the settings. Just update:
 - **Name**: `private-ec2`
 - **Subnet**: `privatelink-private-subnet`
 - **Auto-assign public IP**: Disable
+- **security Group**: `private-ec2-sg`
 - **User Data**: Replace with private EC2 script
 
 This approach reduces setup time and avoids misconfiguration.
@@ -376,33 +471,37 @@ This approach reduces setup time and avoids misconfiguration.
 
 You now have:
 
-| Instance      | Subnet                       | Public IP | Purpose         |
-|---------------|------------------------------|-----------|-----------------|
-| `public-ec2`  | `privatelink-public-subnet`  | ✅         | SSH & curl test |
-| `private-ec2` | `privatelink-private-subnet` | ❌         | Endpoint test   |
+|   Instance    |            Subnet            |  Public IP  |  Security Group   |         Role         |         Purpose          |
+|:-------------:|:----------------------------:|:-----------:|:-----------------:|:--------------------:|:------------------------:|
+| `public-ec2`  | `privatelink-public-subnet`  |      ✅      |   public-ec2-sg   |   public-ec2-role    |  Bastion & test client   |
+| `private-ec2` | `privatelink-private-subnet` |      ❌      |  private-ec2-sg   |   private-ec2-role   | VPC endpoint validation  |
+
+Both instances have a pre-created file you’ll use for `aws s3 cp` tests in later steps.
 
 Next, we'll **SSH into the public EC2**, try AWS CLI commands, and then **hop into the private EC2** to test how endpoints behave.
 
 ---
 
-## 🧪 Step 3: Connectivity Testing Before VPC Endpoints
+## 🧪 Step 3: Test Connectivity Before PrivateLink (VPC Endpoints)
 
-In this step, we'll verify which operations succeed and fail **before** we configure any VPC endpoints.
-
-We will:
-
-1. SSH into the **public EC2** using your key and SSH agent forwarding
-2. Test:
-
-   * Internet access from **public** and **private** EC2
-   * AWS CLI calls (`aws s3 ls`, etc.)
-3. Confirm that private EC2 **cannot** access public internet or AWS APIs (yet)
+Before deploying any PrivateLink endpoints, let’s validate what works — and what doesn’t — when the **private EC2** has **no internet access**.
 
 ---
 
-### 🔑 3.1 SSH into Public EC2 (with Key + Agent Forwarding)
+### 🎯 What We’re Testing
 
-To connect securely and later hop into the private EC2, use this **combined SSH command**:
+| Action                       | Public EC2           | Private EC2            |
+|------------------------------|----------------------|------------------------|
+| `curl` external site         | ✅ Yes (via IGW)      | ❌ No (no NAT/IGW)      |
+| `aws ec2 describe-instances` | ✅ Yes (via internet) | ❌ No (no EC2 endpoint) |
+| `aws s3 ls` / `s3 cp`        | ✅ Yes (via internet) | ❌ No (no S3 endpoint)  |
+| `ssh` into private EC2       | ✅ Yes (via agent)    | N/A                    |
+
+---
+
+### 🔑 3.1 SSH into Public EC2 (with SSH Agent Forwarding)
+
+From your local terminal, run:
 
 ```bash
 ssh -A -i /path/to/privatelink-ec2-key.pem ec2-user@<public-ec2-public-ip>
@@ -410,80 +509,100 @@ ssh -A -i /path/to/privatelink-ec2-key.pem ec2-user@<public-ec2-public-ip>
 
 **Explanation:**
 
-* `-i`: Authenticates to public EC2 using your `.pem` key
-* `-A`: Enables **agent forwarding**, allowing you to SSH into private EC2 without copying the key
+* `-i`: Specifies your `.pem` key for public EC2
+* `-A`: Enables **SSH agent forwarding**, letting you jump securely into the private EC2 *without copying your key*
 
-✅ Result: You’re now inside `public-ec2` with secure credentials forwarded.
+✅ You’re now connected to the `public-ec2`.
 
 ---
 
-### 🌍 3.2 Test Internet + AWS CLI from Public EC2
+### 🌐 3.2 From Public EC2: Test Internet + AWS API Access
 
-From inside the `public-ec2`:
+Once inside the public EC2:
+
+#### 🌍 Internet test
 
 ```bash
 curl http://example.com
 ```
 
-✅ This should work — proving it has internet via the Internet Gateway.
+✅ Expected: Should load successfully — using Internet Gateway.
 
-Then try:
+#### 🖥 EC2 API test
 
 ```bash
-aws s3 ls
 aws ec2 describe-instances --region <your-region>
 ```
 
-✅ These also work — the CLI uses the public internet to reach AWS APIs.
+#### ☁ S3 access test
 
-> 🔎 If you see `Unable to locate credentials`, that's fine for now — we'll assign IAM roles in the next step.
+```bash
+aws s3 ls
+aws s3 cp /home/ec2-user/public-upload.txt s3://privatelink-lab-bucket/
+```
+
+✅ Expected: All AWS CLI calls should work — you're accessing over the public internet via the attached IAM role.
 
 ---
 
-### 🔁 3.3 SSH from Public EC2 into Private EC2
+### 🔁 3.3 SSH into Private EC2 (via Public EC2)
 
-1. From your AWS Console, get the **private IP** of `private-ec2`
-2. From inside the **public EC2 terminal**, run:
+Still inside the `public-ec2`, run:
 
 ```bash
 ssh ec2-user@<private-ec2-private-ip>
 ```
 
-✅ Because your local key was forwarded, you’ll connect without needing to upload the `.pem` file.
-
-> 💡 This works only because we used `-A` earlier. Your local machine handles key verification behind the scenes.
+✅ This works **because we used `-A`** for agent forwarding. Your local key gets forwarded through `public-ec2` — no need to copy `.pem`.
 
 ---
 
-### 🔍 3.4 Test Internet + AWS CLI from Private EC2
+### 🌐 3.4 From Private EC2: Test Internet + AWS Access (Fails)
 
-Now inside the **private EC2**:
+You’re now inside the **private EC2**. Test the same commands:
+
+#### 🌍 Internet
 
 ```bash
 curl http://example.com
 ```
 
-❌ This will **fail** — there’s no Internet Gateway or NAT Gateway.
+❌ Expected: This fails — there’s **no IGW or NAT**.
 
-Now try AWS CLI:
+#### 🖥 EC2 API
 
 ```bash
-aws s3 ls
 aws ec2 describe-instances --region <your-region>
 ```
 
-❌ These also fail — there are **no VPC endpoints** to reach AWS services.
+#### ☁ S3 access
+
+```bash
+aws s3 ls
+aws s3 cp /home/ec2-user/private-upload.txt s3://privatelink-lab-bucket/
+```
+
+❌ All AWS CLI calls should **fail** — there are no **VPC endpoints yet**, even though IAM roles are present.
 
 ---
 
-### ✅ Step 3: Result Summary
+### ✅ Step 3 Results Summary
 
-| Test                         | Public EC2  | Private EC2                |
-|------------------------------|-------------|----------------------------|
-| `curl http://example.com`    | ✅           | ❌                          |
-| `aws s3 ls`                  | ✅           | ❌                          |
-| `aws ec2 describe-instances` | ✅           | ❌                          |
-| SSH access                   | ✅ (from PC) | ✅ (via public EC2 + agent) |
+| Action                       | Public EC2  | Private EC2        |
+|------------------------------|-------------|--------------------|
+| `curl http://example.com`    | ✅           | ❌                  |
+| `aws ec2 describe-instances` | ✅           | ❌                  |
+| `aws s3 ls`                  | ✅           | ❌                  |
+| `aws s3 cp`                  | ✅           | ❌                  |
+| SSH access                   | ✅ (from PC) | ✅ (via public EC2) |
+
+---
+
+### 💡 Why This Happens
+
+* The **private EC2 has no route to the internet**
+* Even with IAM roles, **AWS CLI fails** — because the EC2 can’t reach the service endpoints without help
+* That’s exactly why we need **PrivateLink VPC Endpoints**
 
 ---
 
@@ -499,78 +618,64 @@ aws ec2 describe-instances --region <your-region>
 
 ---
 
-## 🔐 Step 4 (Optional for Console Setup): Assign IAM Role for Secure Access
-
-In a real-world scenario, your EC2 instances should **never rely on public S3 buckets** or embedded access keys.
-
-Instead, you attach an **IAM role** to give them secure, scoped permissions.
-
----
-
-### ⚠️ In This Lab (Console Setup)
-
-- We’re using a **public S3 bucket** for simplicity
-- That means IAM roles are **not required** to access the bucket or run `aws s3` commands
-- You can **skip this step for now**
-
----
-
-### 🔐 In Production / Terraform Section
-
-We’ll assign IAM roles like:
-- `AmazonS3FullAccess`
-- `AmazonEC2ReadOnlyAccess`
-
-To allow:
-- Access to private S3 buckets
-- Communication with EC2 and SSM APIs through **VPC interface endpoints**
-- No need to store AWS credentials on the instance
-
----
-
-💡 **Pro Tip: IAM Role vs Public Bucket**
-
-| Use Case            | Public S3 Bucket | Private S3 + IAM Role |
-|---------------------|------------------|-----------------------|
-| Easy testing (lab)  | ✅                | ❌                     |
-| Secure environments | ❌                | ✅                     |
-| Terraform version   | ❌                | ✅                     |
-
----
-
-## 🌐 Step 5: Create EC2 API Interface Endpoint (PrivateLink)
+## 🌐 Step 4: Create EC2 API Interface Endpoint (PrivateLink)
 
 To allow your **private EC2 instance** (with no internet access) to interact with **Amazon EC2 APIs** — like `describe-instances`, `start-instances`, etc. — we need to create an **Interface Endpoint** via AWS **PrivateLink**.
 
-This enables secure, private communication with AWS services **over the VPC** without traversing the public internet.
+This endpoint allows secure, private communication with AWS APIs inside your VPC — no Internet Gateway or NAT Gateway needed.
 
 ---
 
-### 🧰 Create the EC2 Interface Endpoint
+### 🧱 4.1 Create a Dedicated Security Group for the Endpoint
 
-1. Go to the **VPC Console**
-2. In the left navigation pane, choose **Endpoints**
-3. Click **Create endpoint**
-4. Configure the following:
+VPC Interface Endpoints **attach to an Elastic Network Interface (ENI)** in your subnet — and that ENI **must allow inbound HTTPS (TCP 443)** from your EC2 instance.
 
-   #### 📌 Settings
+We'll create a **dedicated security group** to tightly control this.
 
-   | Setting              | Value                            |
-   |----------------------|----------------------------------|
-   | **Service category** | AWS services                     |
-   | **Service name**     | `com.amazonaws.<region>.ec2`     |
-   | **VPC**              | `privatelink-lab-vpc` (your VPC) |
+#### 🔧 Create `ec2-endpoint-sg`
 
-   #### 📍 Subnet selection
+1. Go to **VPC → Security Groups**
+2. Click **Create security group**
+3. Configure:
 
-   * Select the **private subnet** created earlier
+   * **Name**: `ec2-endpoint-sg`
+   * **VPC**: `Privatelink-Tutorial-VPC`
+4. Under **Inbound Rules**, add:
 
-   #### 🔐 Security group
+   * **Type**: HTTPS
+   * **Source**: `private-ec2-sg` (select it from the list)
+5. Leave **Outbound Rules** as default (allow all)
+6. Click **Create security group**
 
-   * Select the **default SG** or create one that allows HTTPS (TCP port 443) inbound and outbound
-     *(Don’t worry, it’s automatically locked to AWS service traffic)*
+💡 **Why this matters:**
+This allows the **private EC2** to connect to the EC2 API Interface Endpoint via HTTPS.
 
-5. Click **Create endpoint**
+---
+
+### 🔌 4.2 Create the EC2 Interface Endpoint
+
+Follow these instructions using the **latest AWS Console UI (2025)**:
+
+1. Go to the **VPC Dashboard**
+2. In the left nav, click **Endpoints**
+3. Click **Create Endpoint**
+
+#### 📋 Configuration
+
+| Field                | Value                               |
+|----------------------|-------------------------------------|
+| **Name**             | `ec2-interface-endpoint`            |
+| **Service category** | AWS services                        |
+| **Service name**     | `com.amazonaws.<your-region>.ec2`   |
+| **VPC**              | `Privatelink-Tutorial-VPC`          |
+| **Service type**     | Interface                           |
+| **Subnets**          | Select `privatelink-private-subnet` |
+| **Security group**   | Select `ec2-endpoint-sg`            |
+| **Policy**           | Full access (default)               |
+
+✅ Leave **DNS options** and **Private DNS** as default (enabled).
+
+4. Click **Create endpoint**
 
 ---
 
@@ -584,7 +689,7 @@ You created an **Interface VPC Endpoint** — this means:
 
 ---
 
-## 🧪 Step 6: Verify EC2 API Access from Private EC2 (via PrivateLink)
+## 🧪 Step 5: Verify EC2 API Access from Private EC2 (via PrivateLink)
 
 Now that your **EC2 Interface Endpoint** is in place, let’s confirm it works.
 
@@ -618,11 +723,28 @@ This confirms:
 
 ---
 
-Awesome! Here's your next section for the `README.md`, written in the same clear, beginner-friendly style:
+### 💡 Pro Tip: Jump Directly into Private EC2 (One-Line SSH via Bastion)
+
+You can use this **single SSH command** to connect directly from your local machine to a **private EC2**, routing through the **public bastion** (without needing multiple shell hops):
+
+```bash
+ssh -J ec2-user@<BASTION_PUBLIC_IP> ec2-user@<PRIVATE_EC2_IP> -i path/to/your-key.pem
+```
+
+✅ **Explanation:**
+
+* `-J` = Jump host (the bastion/public EC2)
+* `ec2-user@<BASTION_PUBLIC_IP>` = Your public EC2 with internet access
+* `ec2-user@<PRIVATE_EC2_IP>` = The destination: your isolated EC2
+* `-i` = Path to your SSH private key (`.pem`)
+
+This method securely connects through the **bastion** without copying your key or starting multiple sessions manually.
+
+> 🔐 Make sure SSH agent forwarding is enabled if you omit `-i` and rely on `ssh-agent`.
 
 ---
 
-## 🚪 Step 7: Create Gateway Endpoint for S3 (PrivateLink)
+## 🚪 Step 6: Create Gateway Endpoint for S3 (PrivateLink)
 
 Now we’ll allow your **private EC2** to communicate with **Amazon S3** — without going through the internet — by creating a **VPC Gateway Endpoint** for S3.
 
@@ -641,36 +763,45 @@ This allows your EC2 instance to upload, list, and download files from the bucke
 
    | Setting              | Value                            |
    |----------------------|----------------------------------|
+   | **Name**             | s3-gateway                       |
    | **Service category** | AWS services                     |
    | **Service name**     | `com.amazonaws.<region>.s3`      |
    | **VPC**              | `privatelink-lab-vpc` (your VPC) |
+   | **Endpoint type**    | Gateway                          |
 
    #### 📍 Route table selection
 
    * Select the **route table for the private subnet**
-     (You created it earlier — named like `privatelink-lab-private-rt`)
+     (You created it earlier — named like `privatelink-private-rt`)
 
 5. Leave **Policy** set to: `Full access`
+   > 🔐 This allows all S3 requests from within your VPC to succeed.
+
+> ✅ We’ll restrict access more tightly (using `aws:SourceVpce`) in the **Terraform section**.
+
 6. Click **Create endpoint**
 
 ---
 
-### 🔎 What This Does
+### 💡 Pro Tip: Gateway vs Interface Endpoints
 
-When you created the endpoint for EC2 in Step 5, it was an **Interface Endpoint** — which creates a special network interface (ENI) inside your subnet to privately reach an AWS API (like EC2).
+When you created the endpoint for EC2 in Step 4, it was an **Interface Endpoint** — which creates a special network interface (ENI) inside your subnet to privately reach an AWS API (like EC2).
 
 But **this time**, we’re creating a **Gateway Endpoint** — which works a bit differently:
-
-| Type of Endpoint       | Used For                       | How It Works                                                                                         |
-|------------------------|--------------------------------|------------------------------------------------------------------------------------------------------|
-| **Interface Endpoint** | Services like EC2, SSM         | Adds a special ENI inside your subnet for private connections                                        |
-| **Gateway Endpoint**   | Services like **S3**, DynamoDB | Adds a **route** to your route table — so traffic to S3 goes directly through AWS’s internal network |
-
 ✅ You won’t see a new network interface for S3. Instead, AWS automatically updates the **route table** to send all S3 traffic **privately through AWS**, instead of out to the internet.
+
+| Feature      | Interface Endpoint (SSM, EC2) | Gateway Endpoint (S3, DynamoDB) |
+|--------------|-------------------------------|---------------------------------|
+| **Type**     | ENI in your subnet            | Route table-based               |
+| **Resource** | Private IP + Security Group   | No IP — modifies route table    |
+| **Services** | Most AWS APIs                 | Only S3 & DynamoDB              |
+| **Billing**  | Billed per hour + data        | Free                            |
+
+> ✅ Use Gateway Endpoints where available — they are **faster and cheaper**.
 
 ---
 
-## 🧪 Step 8: Upload and List Files from Private EC2 to S3
+## 🧪 Step 7: Upload and List Files from Private EC2 to S3
 
 Now that your **Gateway Endpoint for S3** is in place, let’s test whether your **private EC2 instance** can access the S3 bucket — without using the internet.
 
@@ -725,14 +856,6 @@ This confirms:
 
 * The private EC2 can **securely access S3 over the AWS network**
 * No **NAT Gateway**, **Internet Gateway**, or **public IP** is required
-
----
-
-Thanks for catching that — you're absolutely right.
-
-We **didn't create a NAT Gateway**; instead, we deployed a **VPC Interface Endpoint for EC2 Systems Manager (SSM and related services)** to allow access from the **private EC2** without requiring internet.
-
-Here's the **corrected and finalized clean-up section** that reflects your actual architecture:
 
 ---
 
@@ -1008,7 +1131,55 @@ outputs:
 
 ### 🧪 Testing S3 Uploads via SSM
 
-1. **Manual Test** (after deployment):
+---
+
+1. ### 🧪 Automated Test: Upload via SSM (Terraform-Driven)
+
+This Terraform project includes a `null_resource` to automatically verify **S3 upload capability from the EC2 instance** via SSM after deployment.
+
+It uses the `AWS-StartInteractiveCommand` SSM document to run the following on your private EC2 instance:
+
+```bash
+aws s3 cp /var/www/html/index.html s3://<your-bucket-name>/index.html
+```
+
+The file is created during EC2 instance launch by user\_data.
+
+#### 🧾 How It Works
+
+The test is implemented in Terraform as:
+
+```hcl
+resource "null_resource" "s3_upload_test" {
+  depends_on = [module.ec2_ssm]
+
+  triggers = {
+    ec2_id = module.ec2_ssm.instance_id
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+aws ssm start-session \
+  --target ${module.ec2_ssm.instance_id} \
+  --document-name "AWS-StartInteractiveCommand" \
+  --parameters 'command=["aws s3 cp /var/www/html/index.html s3://${module.s3.bucket_name}/index.html"]'
+EOT
+  }
+}
+```
+
+> 💡 Make sure you're running `terraform apply` from a terminal where AWS CLI is configured and authenticated.
+
+#### ✅ What This Validates
+
+* **SSM session access** is correctly working (IAM + Interface Endpoints)
+* **S3 Gateway Endpoint** is functioning correctly
+* **Bucket policy** allows access only from the VPC endpoint
+* EC2 instance is alive and executing user data
+
+---
+
+2. ### 🧪 Manual Test (after deployment):
 
    ```bash
    aws ssm start-session --target $(terraform output -raw instance_id)
@@ -1016,38 +1187,59 @@ outputs:
    echo "Test file" > test.txt
    aws s3 cp test.txt s3://$(terraform output -raw bucket_name)/
    ```
-2. **Automated Upload Test** (optional):
-
-   ```hcl
-   resource "null_resource" "test_upload" {
-      triggers = {
-         ec2_id = module.ec2_ssm.instance_id 
-      }
-  
-       provisioner "local-exec" {
-         command = <<EOT
-           aws ssm start-session \
-             --target ${module.ec2_ssm.instance_id} \
-             --document-name AWS-StartInteractiveCommand \
-             --parameters 'command="aws s3 cp /var/www/html/index.html s3://${module.s3.bucket_name}/"'
-         EOT
-       }
-   }
-   ``` 
 ---
 
-### 💡 **Learning Takeaways** 
- 
-1. **PrivateLink Architecture**:  
-   - Interface endpoints (SSM) = ENIs in your subnet  
-   - Gateway endpoints (S3) = Route table entries  
+### ✅ Summary & Key Takeaways
 
-2. **SSM as a Bastion Replacement**:  
-   - No SSH keys → Uses IAM authentication  
-   - Encrypted sessions with CloudWatch logging  
+You have successfully built and tested a **PrivateLink-enabled environment** using both manual console setup and Terraform IaC. This lab focused on **securing access to AWS services without using the public internet**.
 
-3. **S3 Security**:  
-   - Bucket policy denies all non-VPC endpoint traffic — protects against accidental exposure even with public internet access. 
+---
+
+### 🔐 What You Learned
+
+| Area                        | What You Did                                                            |
+|-----------------------------|-------------------------------------------------------------------------|
+| **VPC Networking**          | Created isolated private subnets with no Internet Gateway               |
+| **Private EC2**             | Launched EC2 instance in private subnet without public IP or SSH access |
+| **SSM Sessions**            | Used Systems Manager for secure, agent-based shell access               |
+| **AWS PrivateLink**         | Provisioned VPC Interface Endpoints (SSM) and Gateway Endpoint (S3)     |
+| **IAM & Endpoint Policies** | Secured EC2 and S3 access to only flow through defined VPC endpoints    |
+| **S3 Testing**              | Verified endpoint routing via automated and manual upload from EC2      |
+| **S3 Security**             | Bucket policy denies all non-VPC endpoint traffic                       |
+
+---
+
+### 🧠 Real-World Relevance
+
+✅ These techniques form the backbone of **enterprise-grade, internet-isolated architectures**, often used in:
+
+* Regulated environments (finance, healthcare, gov)
+* Security-hardened production networks
+* Zero-trust designs
+
+---
+
+### 🔄 Where to Go Next
+
+* 🔁 Extend with **Interface Endpoint for EC2 API** and try `aws ec2 describe-instances`
+* 🛡️ Add **CloudWatch logging** to track SSM sessions and flow logs
+* 📦 Use **VPC Endpoint Services** to build your own SaaS over PrivateLink
+* 🧪 Integrate with **Secrets Manager** or **EFS** via endpoints
+
+---
+
+### 🧹 Cleanup Reminder
+
+To destroy your infrastructure:
+
+```bash
+terraform destroy -auto-approve
+```
+
+Then manually delete:
+
+* Any IAM roles if not covered by Terraform
+* S3 bucket contents if versioning or lifecycle is enabled
 
 ---
 
