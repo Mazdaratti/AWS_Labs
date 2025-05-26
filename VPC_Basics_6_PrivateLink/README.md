@@ -767,7 +767,7 @@ This allows your EC2 instance to upload, list, and download files from the bucke
    | **Service category** | AWS services                     |
    | **Service name**     | `com.amazonaws.<region>.s3`      |
    | **VPC**              | `privatelink-lab-vpc` (your VPC) |
-   | **Endpoint type**    | Gateway                          |
+   | **Endpoint type**    | **Gateway**                      |
 
    #### 📍 Route table selection
 
@@ -826,8 +826,7 @@ Now that your **Gateway Endpoint for S3** is in place, let’s test whether your
    #### 📤 Upload a test file:
 
    ```bash
-   echo "Hello from private EC2" > testfile.txt
-   aws s3 cp testfile.txt s3://privatelink-lab-bucket/
+   aws s3 cp private-upload.txt s3://privatelink-lab-bucket/
    ```
 
    #### 📥 Confirm it uploaded from the CLI:
@@ -840,7 +839,7 @@ Now that your **Gateway Endpoint for S3** is in place, let’s test whether your
 
    * Open the **AWS Console**
    * Navigate to **S3 > privatelink-lab-bucket**
-   * Confirm that `testfile.txt` is listed in the bucket
+   * Confirm that `private-upload.txt` is listed in the bucket
 
 ---
 
@@ -848,7 +847,7 @@ Now that your **Gateway Endpoint for S3** is in place, let’s test whether your
 
 You should see:
 
-* ✅ `testfile.txt` appears both in the **CLI output** and in the **S3 Console**
+* ✅ `private-upload.txt` appears both in the **CLI output** and in the **S3 Console**
 * ✅ No internet access was needed from the private EC2
 * ✅ The S3 bucket was accessed via the **Gateway Endpoint**
 
@@ -859,6 +858,14 @@ This confirms:
 
 ---
 
+### 💡 Pro Tip: How to Confirm Which Path Is Used?
+
+* Use **VPC Flow Logs** to see if S3 traffic exits the VPC (it shouldn’t!)
+* You can also use **CloudTrail** to verify that requests came via your **VPC Endpoint**
+
+> In production, use S3 **bucket policies** with `aws:SourceVpce` to lock down access to the endpoint path only.
+
+---
 ## 🧹 Step 9: Clean-Up Resources
 
 Once you're done validating the architecture, it's important to delete all AWS resources you provisioned manually to avoid ongoing charges.
