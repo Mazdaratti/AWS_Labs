@@ -3,6 +3,11 @@ variable "instance_type" {
   type        = string
 }
 
+variable "ami_id" {
+  description = "AMI ID to launch (Amazon Linux 2023)"
+  type        = string
+}
+
 variable "vpc_name" {
   description = "Prefix for naming resources"
   type        = string
