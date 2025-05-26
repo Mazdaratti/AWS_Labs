@@ -7,3 +7,8 @@ variable "vpc_endpoint_id" {
   description = "VPC Gateway Endpoint ID to restrict bucket access"
   type        = string
 }
+
+variable "deployer_arn" {
+  description = "ARN of the IAM user or role running Terraform (for exempting from S3 policy deny)"
+  type        = string
+}
