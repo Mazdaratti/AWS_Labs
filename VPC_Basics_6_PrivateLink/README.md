@@ -866,6 +866,62 @@ This confirms:
 > In production, use S3 **bucket policies** with `aws:SourceVpce` to lock down access to the endpoint path only.
 
 ---
+
+### 💡 Pro Tip:🛠 How to Enable Flow Logs (If Not Yet Configured)
+
+### 1. Navigate to **VPC > Your VPCs**
+
+* Select your VPC (e.g., `Privatelink-Tutorial-VPC`)
+* Click the **Flow Logs** tab
+* Click **Create flow log**
+
+### 2. Configure Flow Log
+
+| Setting     | Value                                                       |
+|-------------|-------------------------------------------------------------|
+| Filter      | `All` (to capture accepted and rejected traffic)            |
+| Destination | `Send to CloudWatch Logs`                                   |
+| Log group   | Create a new one or select `/vpc/flow-logs`                 |
+| IAM Role    | Use existing or create one with `vpc-flow-logs` permissions |
+
+> If needed, AWS will auto-create the IAM role for CloudWatch log delivery.
+
+### 3. Click **Create Flow Log**
+
+---
+
+## 📊 Step 3: View Logs in CloudWatch
+
+1. Go to **CloudWatch** > **Logs** > **Log Groups**
+2. Select your log group (e.g., `/vpc/flow-logs/<your-vpc-name>`)
+3. Click into one of the **Log Streams**
+4. You’ll see entries like:
+
+```text
+10.0.2.100 10.0.0.0 443 ACCEPT OK ...
+10.0.2.100 10.0.0.0 443 ACCEPT OK ...
+```
+
+Use the **CloudWatch Logs Insights** tool to run structured queries:
+
+```sql
+fields @timestamp, srcAddr, dstAddr, dstPort, action
+| filter dstPort = 443
+| sort @timestamp desc
+```
+
+---
+
+## What to Look For
+
+| What You’re Testing             | What to Look For                            |
+| ------------------------------- | ------------------------------------------- |
+| EC2 → S3 via Gateway Endpoint   | Private IP accessing `443` on `s3` IPs      |
+| EC2 → EC2 API via Interface EP  | Port `443` to a private endpoint IP         |
+| EC2 → Public Internet (blocked) | Dropped or missing entries for external IPs |
+
+---
+
 ## 🧹 Step 9: Clean-Up Resources
 
 Once you're done validating the architecture, it's important to delete all AWS resources you provisioned manually to avoid ongoing charges.
