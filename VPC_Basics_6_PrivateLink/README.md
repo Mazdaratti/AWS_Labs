@@ -915,7 +915,7 @@ fields @timestamp, srcAddr, dstAddr, dstPort, action
 ## What to Look For
 
 | What You’re Testing             | What to Look For                            |
-| ------------------------------- | ------------------------------------------- |
+|---------------------------------|---------------------------------------------|
 | EC2 → S3 via Gateway Endpoint   | Private IP accessing `443` on `s3` IPs      |
 | EC2 → EC2 API via Interface EP  | Port `443` to a private endpoint IP         |
 | EC2 → Public Internet (blocked) | Dropped or missing entries for external IPs |
@@ -1061,7 +1061,7 @@ Terraform/
 
 #### 2. **Private EC2 Instance**  
 - **No SSH/key pair**: Uses IAM role `AmazonSSMManagedInstanceCore`  
-- **User Data**: Simple web server to test connectivity  
+- **User Data**: Simple file to test upload to S3 Bucket
 
 #### 3. **Locked-Down S3 Bucket**  
 - **Accessible only via VPC endpoint** (enforced by bucket policy)  
@@ -1107,7 +1107,7 @@ resources:
     • IAM role:
       - AmazonSSMManagedInstanceCore
       - AmazonS3FullAccess (for upload testing)
-    • user_data: Simple Apache web server (serves index.html used in upload test)
+    • user_data: Creates simple file for upload test
 outputs:
   - instance_id
   - instance_private_ip
@@ -1183,12 +1183,12 @@ outputs:
    💡 Make sure your AWS CLI is configured and authenticated (`aws configure`), and that the region matches your tfvars.
 
    ```bash
-   aws ssm start-session --target $(terraform output -raw instance_id)
+   aws ssm start-session --target <instance_id>
    ```
 
 5. **Verify S3 access** (from SSM session):
    ```bash
-   aws s3 ls s3://$(terraform output -raw bucket_name)
+   aws s3 ls s3://<bucket_name>
    ```
 ---
 
@@ -1203,7 +1203,7 @@ This Terraform project includes a `null_resource` to automatically verify **S3 u
 It uses the `AWS-StartInteractiveCommand` SSM document to run the following on your private EC2 instance:
 
 ```bash
-aws s3 cp /var/www/html/index.html s3://<your-bucket-name>/index.html
+aws s3 cp /home/ec2-user/private-upload.txt s3://${module.s3.bucket_name}/private-upload.txt
 ```
 
 The file is created during EC2 instance launch by user\_data.
@@ -1214,21 +1214,20 @@ The test is implemented in Terraform as:
 
 ```hcl
 resource "null_resource" "s3_upload_test" {
-  depends_on = [module.ec2_ssm]
-
   triggers = {
-    ec2_id = module.ec2_ssm.instance_id
+    instance_id = module.ec2_ssm.instance_id
   }
 
   provisioner "local-exec" {
     command = <<EOT
-aws ssm start-session \
-  --target ${module.ec2_ssm.instance_id} \
-  --document-name "AWS-StartInteractiveCommand" \
-  --parameters 'command=["aws s3 cp /var/www/html/index.html s3://${module.s3.bucket_name}/index.html"]'
-EOT
+      aws ssm start-session \
+        --target ${module.ec2_ssm.instance_id} \
+        --document-name "AWS-StartInteractiveCommand" \
+        --parameters command='["aws s3 cp /home/ec2-user/private-upload.txt s3://${module.s3.bucket_name}/private-upload.txt"]'
+    EOT
   }
 }
+
 ```
 
 > 💡 Make sure you're running `terraform apply` from a terminal where AWS CLI is configured and authenticated.
