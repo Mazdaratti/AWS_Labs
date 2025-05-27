@@ -92,3 +92,13 @@ output "private_instance_ip" {
   description = "Private IP of private EC2"
   value       = module.ec2_instances.private_instance_private_ip
 }
+
+output "public_instance_public_ip" {
+  description = "Public IP of the public EC2"
+  value       = module.ec2_instances.public_instance_public_ip
+}
+
+output "private_instance_private_ip" {
+  description = "Private IP of the private EC2"
+  value       = module.ec2_instances.private_instance_private_ip
+}

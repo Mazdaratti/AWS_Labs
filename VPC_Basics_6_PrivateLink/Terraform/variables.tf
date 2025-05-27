@@ -50,7 +50,7 @@ variable "instance_type" {
   default     = "t2.micro"
 }
 
-variable "deployer_arn" {
-  description = "ARN of the IAM user or role running Terraform (for exempting from S3 policy deny)"
+variable "key_pair_name" {
+  description = "SSH key pair name to use for EC2 instances"
   type        = string
 }
