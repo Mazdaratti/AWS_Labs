@@ -17,11 +17,12 @@ provider "aws" {
 # --- VPC Module ---
 # =====================
 module "vpc" {
-  source            = "./modules/vpc"
-  availability_zone = data.aws_availability_zones.available.names[0]
-  vpc_name          = var.vpc_name
-  vpc_cidr          = var.vpc_cidr
-  subnet_cidr       = var.subnet_cidr
+  source              = "./modules/vpc"
+  availability_zone   = data.aws_availability_zones.available.names[0]
+  vpc_name            = var.vpc_name
+  vpc_cidr            = var.vpc_cidr
+  public_subnet_cidr  = var.public_subnet_cidr
+  private_subnet_cidr = var.private_subnet_cidr
 }
 
 # =====================
