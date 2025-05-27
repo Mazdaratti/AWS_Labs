@@ -36,6 +36,16 @@ module "security_groups" {
 }
 
 # =====================
+# ------- IAM  --------
+# =====================
+module "iam" {
+  source       = "./modules/iam"
+
+  private_ec2_role_name = "private-ec2-role"
+  public_ec2_role_name  = "public-ec2-role"
+}
+
+# =====================
 # --- Endpoints ---
 # =====================
 module "endpoints" {
@@ -43,7 +53,7 @@ module "endpoints" {
   vpc_name        = var.vpc_name
   vpc_id          = module.vpc.vpc_id
   subnet_id       = module.vpc.private_subnet_id
-  route_table_id  = module.vpc.route_table_id
+  route_table_id  = module.vpc.private_route_table_id
   endpoint_sg_id  = module.security_groups.endpoint_sg_id
   region          = var.region
 }
@@ -59,10 +69,10 @@ module "s3" {
 }
 
 # =====================
-# ------ EC2_SSM ------
+# --- EC2_Instances ---
 # =====================
-module "ec2_ssm" {
-  source        = "./modules/ec2_ssm"
+module "ec2_instances" {
+  source        = "./modules/ec2_instances"
   ami_id        = data.aws_ami.amazon_linux_2023.id
   vpc_name      = var.vpc_name
   instance_type = var.instance_type
