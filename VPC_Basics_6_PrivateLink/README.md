@@ -6,7 +6,6 @@ We’ll simulate both failure and success scenarios by testing connectivity:
 
 * 🔴 When no VPC endpoints are configured (access fails)
 * ✅ After adding the correct VPC **Interface** and **Gateway** Endpoints (access succeeds)
-* ✅ Bonus: Use **SSM Interface Endpoint** to access private EC2 without SSH or bastion
 
 ---
 
@@ -24,21 +23,20 @@ We’ll simulate both failure and success scenarios by testing connectivity:
 * How to configure **VPC endpoints** step by step via AWS Console
 * How to **test access** to AWS services with and without PrivateLink
 * How **gateway endpoints differ from interface endpoints**
-* How to use **Session Manager** as a secure bastionless alternative
 
 ---
 
 ### 🧱 Architecture Overview
 
-| Component      | Purpose                                                                  |
-|----------------|--------------------------------------------------------------------------|
-| VPC            | Custom VPC for isolation                                                 |
-| Public Subnet  | Holds public EC2 (used for testing and SSH into private EC2)             |
-| Private Subnet | Holds EC2 with no internet access (primary focus of this lab)            |
-| S3 Bucket      | Used to test access over Gateway Endpoint                                |
-| EC2 Instances  | One in public subnet, one in private subnet                              |
-| VPC Endpoints  | Interface endpoint for EC2 API, SSM (terraform); Gateway endpoint for S3 |
-| IAM Roles      | Attach permissions for EC2, SSM and S3 to private EC2                    |
+| Component      | Purpose                                                       |
+|----------------|---------------------------------------------------------------|
+| VPC            | Custom VPC for isolation                                      |
+| Public Subnet  | Holds public EC2 (used for testing and SSH into private EC2)  |
+| Private Subnet | Holds EC2 with no internet access (primary focus of this lab) |
+| S3 Bucket      | Used to test access over Gateway Endpoint                     |
+| EC2 Instances  | One in public subnet, one in private subnet                   |
+| VPC Endpoints  | Interface endpoint for EC2 API; Gateway endpoint for S3       |
+| IAM Roles      | Attach permissions for EC2 and S3 to public/private EC2       |
 
 ---
 
@@ -267,8 +265,6 @@ In production, you should:
 
   * `aws:SourceVpce` (to only allow traffic via your VPC endpoint)
   * IAM conditions like `aws:SourceArn` or `aws:SourceAccount`
-
-We’ll implement all of this securely in the **Terraform section** of this lab.
 
 ---
 
@@ -999,11 +995,7 @@ Ensure that:
 
 ## 🌩️ Terraform Deployment: PrivateLink Lab
 
-### 🔒 **What You’ll Automate**  
-This Terraform project demonstrates **AWS PrivateLink** to securely access AWS services (S3, SSM) from isolated EC2 instances without using the public internet by creating:  
-- A **private EC2 instance** (no public IP)  
-- **VPC endpoints** for SSM (Interface) and S3 (Gateway)  
-- A **private S3 bucket** accessible only via the endpoint  
+This project uses **modular Terraform** to provision the same architecture built manually through the AWS Console. It follows **best practices** for clarity, reuse, and scalability.
 
 ---
 
@@ -1012,34 +1004,39 @@ This Terraform project demonstrates **AWS PrivateLink** to securely access AWS s
 Terraform/
 ├── main.tf                      # Root module: orchestrates all submodules
 ├── variables.tf                 # Input variables for the root module
-├── outputs.tf                   # Outputs (e.g., SSM access command)
-├── data.tf                      # Dynamic values (AZs, AMI)
+├── outputs.tf                   # Outputs 
+├── data.tf                      # Dynamic values (Fetch AZs, AMI)
 ├── terraform.tfvars.example     # Example variable values
 ├── README.md                    # Lab instructions (matches console and terraform versions)
 │
 └── modules/                     # Reusable infrastructure components
     ├── vpc/
-    │   ├── main.tf              # VPC + isolated private subnet
+    │   ├── main.tf              # VPC + public/private subnets + IGW + route tables
     │   ├── variables.tf
     │   └── outputs.tf
     │
-    ├── endpoints/
-    │   ├── main.tf              # Critical VPC endpoints: Interface (SSM) + Gateway (S3) endpoints
+    ├── iam/                     # EC2 roles and policies
+    │   ├── main.tf              
     │   ├── variables.tf
     │   └── outputs.tf
     │
-    ├── ec2_ssm/
-    │   ├── main.tf              # Private EC2 with IAM roles for SSM/S3
+    ├── security_groups/         # EC2 and endpoint security groups
+    │   ├── main.tf              
     │   ├── variables.tf
     │   └── outputs.tf
     │
-    ├── security_groups/
-    │   ├── main.tf              # SGs for EC2 and endpoints
+    ├── ec2_instances/           # EC2 instances in public and private subnets
+    │   ├── main.tf              
+    │   ├── variables.tf
+    │   └── outputs.tf
+    │        
+    ├── endpoints/               # Interface and Gateway endpoints
+    │   ├── main.tf              
     │   ├── variables.tf
     │   └── outputs.tf
     │
     └── s3/
-        ├── main.tf              # Private S3 bucket with VPC endpoint policy
+        ├── main.tf              # S3 bucket for upload test
         ├── variables.tf
         └── outputs.tf
 ```
