@@ -1,3 +1,19 @@
+# ==============================
+# Interface Endpoint for EC2 API
+# ==============================
+resource "aws_vpc_endpoint" "ec2_interface" {
+  vpc_id              = var.vpc_id
+  subnet_ids          = var.subnet_ids
+  security_group_ids  = [var.endpoint_sg_id]
+  service_name        = "com.amazonaws.${var.region}.ec2"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+
+  tags = {
+    Name = "ec2-api-endpoint"
+  }
+}
+
 # =====================
 # S3 Gateway Endpoint
 # =====================
@@ -8,38 +24,8 @@ resource "aws_vpc_endpoint" "s3_gateway" {
   route_table_ids   = [var.route_table_id]
 
   tags = {
-    Name = "${var.vpc_name}-s3-endpoint"
+    Name = "s3-gateway-endpoint"
   }
 }
 
-# =====================
-# SSM Interface Endpoint
-# =====================
-resource "aws_vpc_endpoint" "ssm_interface" {
-  vpc_id              = var.vpc_id
-  subnet_ids          = [var.subnet_id]
-  security_group_ids  = [var.endpoint_sg_id]
-  service_name        = "com.amazonaws.${var.region}.ssm"
-  vpc_endpoint_type   = "Interface"
-  private_dns_enabled = true
 
-  tags = {
-    Name = "${var.vpc_name}-ssm-endpoint"
-  }
-}
-
-# =====================
-# SSM Messages Interface Endpoint
-# =====================
-resource "aws_vpc_endpoint" "ssmmessages_interface" {
-  vpc_id              = var.vpc_id
-  subnet_ids          = [var.subnet_id]
-  security_group_ids  = [var.endpoint_sg_id]
-  service_name        = "com.amazonaws.${var.region}.ssmmessages"
-  vpc_endpoint_type   = "Interface"
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.vpc_name}-ssmmessages-endpoint"
-  }
-}
