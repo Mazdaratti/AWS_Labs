@@ -8,7 +8,7 @@ variable "vpc_endpoint_id" {
   type        = string
 }
 
-variable "deployer_arn" {
-  description = "ARN of the IAM user or role running Terraform (for exempting from S3 policy deny)"
+variable "public_ec2_role_arn" {
+  description = "ARN of the IAM role used by the public EC2 instance"
   type        = string
 }
