@@ -1,5 +1,5 @@
-variable "vpc_name" {
-  description = "Prefix for SG naming"
+variable "allowed_ssh_cidr" {
+  description = "CIDR block allowed to SSH into public EC2"
   type        = string
 }
 
@@ -8,7 +8,7 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "subnet_cidr" {
+variable "private_subnet_cidr" {
   description = "CIDR block for the private subnet"
   type        = string
 }
