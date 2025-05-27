@@ -30,9 +30,9 @@ module "vpc" {
 # =====================
 module "security_groups" {
   source       = "./modules/security_groups"
-  vpc_name     = var.vpc_name
   vpc_id       = module.vpc.vpc_id
-  subnet_cidr  = var.subnet_cidr
+  private_subnet_cidr  = var.private_subnet_cidr
+  allowed_ssh_cidr = var.allowed_ssh_cidr
 }
 
 # =====================
