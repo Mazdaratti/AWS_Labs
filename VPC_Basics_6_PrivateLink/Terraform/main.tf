@@ -69,20 +69,4 @@ module "ec2_ssm" {
   ec2_sg_id     = module.security_groups.ec2_sg_id
 }
 
-# =====================
-# ---Automated Test----
-# =====================
-resource "null_resource" "s3_upload_test" {
-  triggers = {
-    instance_id = module.ec2_ssm.instance_id
-  }
 
-  provisioner "local-exec" {
-    command = <<EOT
-      aws ssm start-session \
-        --target ${module.ec2_ssm.instance_id} \
-        --document-name "AWS-StartInteractiveCommand" \
-        --parameters command='["aws s3 cp /home/ec2-user/private-upload.txt s3://${module.s3.bucket_name}/private-upload.txt"]'
-    EOT
-  }
-}
