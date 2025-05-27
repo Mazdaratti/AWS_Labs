@@ -62,9 +62,9 @@ module "endpoints" {
 # =====================
 module "s3" {
   source          = "./modules/s3"
-  deployer_arn = var.deployer_arn
   bucket_name     = var.bucket_name
   vpc_endpoint_id = module.endpoints.s3_endpoint_id
+  public_ec2_role_arn = module.iam.public_ec2_role_arn
 }
 
 # =====================
