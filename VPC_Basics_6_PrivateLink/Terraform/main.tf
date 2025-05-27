@@ -71,12 +71,17 @@ module "s3" {
 # --- EC2_Instances ---
 # =====================
 module "ec2_instances" {
-  source        = "./modules/ec2_instances"
-  ami_id        = data.aws_ami.amazon_linux_2023.id
-  vpc_name      = var.vpc_name
-  instance_type = var.instance_type
-  subnet_id     = module.vpc.private_subnet_id
-  ec2_sg_id     = module.security_groups.ec2_sg_id
+  source = "./modules/ec2_instances"
+
+  public_subnet_id              = module.vpc.public_subnet_id
+  private_subnet_id             = module.vpc.private_subnet_id
+  public_sg_id                  = module.security_groups.public_ec2_sg_id
+  private_sg_id                 = module.security_groups.private_ec2_sg_id
+  public_instance_profile_name  = module.iam.public_ec2_instance_profile
+  private_instance_profile_name = module.iam.private_ec2_instance_profile
+  key_pair_name                 = var.key_pair_name
+  ami_id                        = data.aws_ami.amazon_linux_2023.id
+  instance_type                 = var.instance_type
 }
 
 
