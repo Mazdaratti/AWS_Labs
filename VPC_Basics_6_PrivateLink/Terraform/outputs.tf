@@ -13,9 +13,14 @@ output "private_subnet_id" {
   value       = module.vpc.private_subnet_id
 }
 
-output "ec2_sg_id" {
-  description = "EC2 instance SG"
-  value       = module.security_groups.ec2_sg_id
+output "private_ec2_sg_id" {
+  description = "Private EC2 instance SG"
+  value       = module.security_groups.private_ec2_sg_id
+}
+
+output "public_ec2_sg_id" {
+  description = "Public EC2 instance SG"
+  value       = module.security_groups.public_ec2_sg_id
 }
 
 output "endpoint_sg_id" {

@@ -23,6 +23,11 @@ variable "private_subnet_cidr" {
   type        = string
 }
 
+variable "allowed_ssh_cidr" {
+  description = "CIDR block allowed to SSH into public EC2"
+  type        = string
+}
+
 variable "bucket_name" {
   description = "Globally unique name for the S3 bucket"
   type        = string

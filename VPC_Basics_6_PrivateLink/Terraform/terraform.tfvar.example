@@ -7,5 +7,4 @@ public_subnet_cidr   = "10.0.1.0/24"
 private_subnet_cidr   = "10.0.2.0/24"
 bucket_name   = "privatelink-lab-demo-bucket-1234"  # <-- must be globally unique
 instance_type = "t2.micro"
-# Optional: Used for endpoint SG if narrowed access is desired
-private_cidr  = "10.0.1.0/24"
+allowed_ssh_cidr = "<your ip>/32"
