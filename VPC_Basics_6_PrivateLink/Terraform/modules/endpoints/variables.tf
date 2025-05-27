@@ -1,16 +1,11 @@
-variable "vpc_name" {
-  description = "Prefix for naming"
-  type        = string
-}
-
 variable "vpc_id" {
   description = "VPC ID"
   type        = string
 }
 
-variable "subnet_id" {
-  description = "Private subnet ID for interface endpoints"
-  type        = string
+variable "subnet_ids" {
+  description = "Subnet IDs for interface endpoints"
+  type        = list(string)
 }
 
 variable "route_table_id" {
@@ -24,6 +19,6 @@ variable "endpoint_sg_id" {
 }
 
 variable "region" {
-  description = "AWS region (for building endpoint names)"
+  description = "AWS region (for building service names)"
   type        = string
 }
