@@ -28,6 +28,26 @@ output "endpoint_sg_id" {
   value       = module.security_groups.endpoint_sg_id
 }
 
+output "public_ec2_role_name" {
+  description = "Name of the IAM role for the public EC2 instance"
+  value       = module.iam.public_ec2_role_name
+}
+
+output "public_ec2_instance_profile" {
+  description = "Instance profile ARN for the public EC2 instance"
+  value       = module.iam.public_ec2_instance_profile
+}
+
+output "private_ec2_role_name" {
+  description = "Name of the IAM role for the private EC2 instance"
+  value       = module.iam.private_ec2_role_name
+}
+
+output "private_ec2_instance_profile" {
+  description = "Instance profile ARN for the private EC2 instance"
+  value       = module.iam.private_ec2_instance_profile
+}
+
 output "bucket_name" {
   description = "Name of the S3 bucket"
   value       = module.s3.bucket_name

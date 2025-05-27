@@ -28,6 +28,17 @@ variable "allowed_ssh_cidr" {
   type        = string
 }
 
+variable "public_ec2_role_name" {
+  description = "Name of the IAM role for the public EC2 instance"
+  type        = string
+  default     = "public-ec2-role"
+}
+
+variable "private_ec2_role_name" {
+  description = "Name of the IAM role for the private EC2 instance"
+  type        = string
+  default     = "private-ec2-role"
+}
 variable "bucket_name" {
   description = "Globally unique name for the S3 bucket"
   type        = string
