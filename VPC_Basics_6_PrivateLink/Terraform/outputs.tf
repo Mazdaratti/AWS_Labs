@@ -58,6 +58,16 @@ output "ec2_interface_endpoint_id" {
   value       = module.endpoints.ec2_interface_endpoint_id
 }
 
+output "s3_endpoint_id" {
+  description = "Gateway endpoint for S3"
+  value       = module.endpoints.s3_endpoint_id
+}
+
+output "ec2_endpoint_id" {
+  description = "Interface endpoint for SSM"
+  value       = module.endpoints.ec2_endpoint_id
+}
+
 output "bucket_name" {
   description = "Name of the S3 bucket"
   value       = module.s3.bucket_name
@@ -68,27 +78,17 @@ output "bucket_arn" {
   value       = module.s3.bucket_arn
 }
 
-output "s3_endpoint_id" {
-  description = "Gateway endpoint for S3"
-  value       = module.endpoints.s3_endpoint_id
-}
-
-output "ssm_endpoint_id" {
-  description = "Interface endpoint for SSM"
-  value       = module.endpoints.ssm_endpoint_id
-}
-
-output "ssmmessages_endpoint_id" {
-  description = "Interface endpoint for SSM Messages"
-  value       = module.endpoints.ssmmessages_endpoint_id
-}
-
-output "instance_id" {
+output "public_instance_id" {
   description = "SSM-managed EC2 instance ID"
-  value       = module.ec2_ssm.instance_id
+  value       = module.ec2_instances.public_instance_id
 }
 
-output "instance_private_ip" {
-  description = "Private IP of EC2"
-  value       = module.ec2_ssm.instance_private_ip
+output "private_instance_id" {
+  description = "SSM-managed EC2 instance ID"
+  value       = module.ec2_instances.private_instance_id
+}
+
+output "private_instance_ip" {
+  description = "Private IP of private EC2"
+  value       = module.ec2_instances.private_instance_private_ip
 }
