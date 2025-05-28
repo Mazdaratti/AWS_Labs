@@ -621,8 +621,6 @@ Congrats! You’ve successfully deployed and tested an **internet-facing Network
 
 This project uses **modular Terraform** to provision the same architecture built manually through the AWS Console. It follows **best practices** for clarity, reuse, and scalability.
 
-
-
 ---
 
 ### 📁 Project Directory Layout
@@ -771,10 +769,6 @@ terraform destroy
 ```
 
 Make sure to confirm the prompt to proceed with the destruction.
-
----
-
-Here’s your final **✅ Summary** block for the README.md, written to match your format and tone:
 
 ---
 

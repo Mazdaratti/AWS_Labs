@@ -1,0 +1,11 @@
+# Example input values for PrivateLink Lab
+
+region        = "us-east-1"
+vpc_name      = "privatelink-lab-vpc"
+vpc_cidr      = "10.0.0.0/16"
+public_subnet_cidr   = "10.0.1.0/24"
+private_subnet_cidr   = "10.0.2.0/24"
+bucket_name   = "privatelink-lab-bucket"  # <-- must be globally unique
+instance_type = "t2.micro"
+allowed_ssh_cidr = "<your_ip>/32"
+key_pair_name           = <your_key_pair_name>
