@@ -353,7 +353,7 @@ We’ll create **dedicated security groups** for each EC2:
 5. Inbound rules:
 
    * Type: `SSH` → Source: `My IP` (for SSH access)
-   * Type: `HTTP` → Source: `0.0.0.0/0`(optional — useful for future SSM testing)
+   * Type: `HTTP` → Source: `0.0.0.0/0`(optional)
 6. Outbound rules:
    
    * Leave as default:
@@ -638,8 +638,10 @@ We'll create a **dedicated security group** to tightly control this.
    * **VPC**: `Privatelink-Tutorial-VPC`
 4. Under **Inbound Rules**, add:
 
-   * **Type**: HTTPS
-   * **Source**: `private-ec2-sg` (select it from the list)
+   * Type: HTTPS
+   * Source: `private-ec2-sg` (to allow private EC2 to reach the endpoint)
+   * Type: HTTPS
+   * Source: `public-ec2-sg` (to allow public EC2 to reach the same endpoint)
 5. Leave **Outbound Rules** as default (allow all)
 6. Click **Create security group**
 
@@ -673,6 +675,10 @@ Follow these instructions using the **latest AWS Console UI (2025)**:
 
 4. Click **Create endpoint**
 
+T
+> ⚠️ **Note**: With **Private DNS enabled**, any EC2 in the VPC — including public instances — may attempt to use this interface endpoint.
+> If you want **both public and private EC2s** to reach the EC2 API through the endpoint, the **endpoint’s security group must allow HTTPS** from **both** EC2 security groups.
+
 ---
 
 ### 🧠 What Just Happened?
@@ -682,6 +688,20 @@ You created an **Interface VPC Endpoint** — this means:
 * Your **private EC2** can now access EC2 APIs like `describe-instances`
 * **No public IP** or internet route is needed
 * Requests stay inside the **AWS network**
+
+---
+
+> 💡 **Pro Tip: DNS Overrides Apply VPC-Wide**
+>
+> When you create a VPC Interface Endpoint (e.g., EC2 API), AWS overrides DNS **across your entire VPC**.
+>
+> Even EC2 instances **not in the associated subnet** will resolve the service hostname (e.g., `ec2.<region>.amazonaws.com`) to the endpoint’s private IP.
+>
+> ✅ To ensure connectivity:
+> - The EC2 instance must be **able to route** to the endpoint ENI (via your VPC)
+> - The **endpoint's security group must allow HTTPS** from the EC2's security group
+>
+> 🧠 Subnet association only determines **where AWS places the ENIs** — it does **not restrict DNS override or access**.
 
 ---
 
@@ -995,11 +1015,20 @@ Ensure that:
 
 ## 🌩️ Terraform Deployment: PrivateLink Lab
 
-This project uses **modular Terraform** to provision the same architecture built manually through the AWS Console. It follows **best practices** for clarity, reuse, and scalability.
+### 🔒 **What You’ll Automate**
+
+This Terraform project mirrors your manual setup and automates:
+
+* VPC with public & private subnets
+* EC2 instances with IAM roles
+* Gateway & Interface Endpoints (PrivateLink)
+* A secure S3 bucket with limited access
+* All resource creation with **modular, beginner-friendly Terraform**
 
 ---
 
-### 📂 **Directory Structure**  
+### 📁 Project Structure
+
 ```text  
 Terraform/
 ├── main.tf                      # Root module: orchestrates all submodules
@@ -1042,248 +1071,239 @@ Terraform/
 ```
 ---
 
-### 🧱 **Core Components**  
+### 📂 Root Module Responsibilities
 
-#### 1. **VPC Endpoints (PrivateLink)**  
-| Endpoint Type | Service                      | Purpose                            |  
-|---------------|------------------------------|------------------------------------|  
-| **Interface** | `com.amazonaws.<region>.ssm` | Allows SSM sessions to private EC2 |  
-| **Gateway**   | `com.amazonaws.<region>.s3`  | Private S3 access without internet |  
+The root module:
 
-> 🔍 **Why Only SSM (Not EC2 API)?**  
-> - **SSM is sufficient**: It handles both management *and* CLI access via `start-session`  
-> - **Reduced complexity**: EC2 API endpoint isn’t needed just to manage the instance  
-> - **Cost optimization**: Fewer endpoints = lower cost  
-> - **Best practice**: SSM is the recommended way to manage EC2 in private networks
-
-#### 2. **Private EC2 Instance**  
-- **No SSH/key pair**: Uses IAM role `AmazonSSMManagedInstanceCore`  
-- **User Data**: Simple file to test upload to S3 Bucket
-
-#### 3. **Locked-Down S3 Bucket**  
-- **Accessible only via VPC endpoint** (enforced by bucket policy)  
-- **Test file auto-uploaded** during deployment  
+* Instantiates all submodules in order
+* Supplies required input variables
+* Fetches dynamic values like availability zones and AMIs
+* Exports useful output (e.g., instance IDs)
 
 ---
 
-### 📂 Module Breakdown (PrivateLink Focused)
+## 🧱 Terraform Modules Overview
 
-#### 1. **vpc/** (Simplified)
+### 1️⃣ `vpc/` Module
+
+Creates the core network layout:
+
 ```hcl
-# Purpose: Isolated private network for SSM access only
-resources:
-  - VPC (10.0.0.0/16)
-  - Private subnet (10.0.1.0/24) with local route table
-  - No Internet Gateway or public subnets
-outputs:
-  - vpc_id
-  - private_subnet_id
+Resources:
+- VPC (10.0.0.0/16)
+- Public subnet (10.0.1.0/24)
+- Private subnet (10.0.2.0/24)
+- Internet Gateway
+- Public & private route tables
+
+Outputs:
+- vpc_id
+- public_subnet_id
+- private_subnet_id
 ```
-
-#### 2. **security_groups/** (SSM-Optimized)
-```hcl
-# Purpose: Minimal access for SSM and endpoints
-resources:
-  - Private EC2 SG:
-    • HTTPS to SSM endpoints
-    • No inbound SSH (SSM replaces bastion)
-  - Endpoint SG:
-    • HTTPS from private subnet CIDR
-outputs:
-  - private_ec2_sg_id
-  - endpoint_sg_id
-```
-
-#### 3. **ec2_ssm/** (SSM Only)
-```hcl
-# Purpose: Private instance with zero SSH access
-resources:
-  - EC2 Instance:
-    • amazon-linux-2023 AMI
-    • No public IP or key pair
-    • IAM role:
-      - AmazonSSMManagedInstanceCore
-      - AmazonS3FullAccess (for upload testing)
-    • user_data: Creates simple file for upload test
-outputs:
-  - instance_id
-  - instance_private_ip
-```
-
-#### 4. **endpoints/** (PrivateLink Core)
-```hcl
-# Purpose: Enable private AWS API access
-resources:
-  - SSM Interface Endpoint (com.amazonaws.<region>.ssm)
-  - SSM Messages Endpoint (com.amazonaws.<region>.ssmmessages) # required for interactive SSM sessions (like start-session)
-  - S3 Gateway Endpoint (com.amazonaws.<region>.s3)
-  - Endpoint security group (HTTPS only)
-outputs:
-  - ssm_endpoint_id
-  - ssmmessages_endpoint_id
-  - s3_endpoint_id
-```
-
-#### 5. **s3/** (Endpoint-Restricted)
-```hcl
-# Purpose: Demonstrate Gateway Endpoint access
-resources:
-  - Private S3 bucket
-  - Bucket policy:
-    • Deny all non-VPC endpoint traffic
-    • Allow only from private subnet
-    • Enforces access **only through Gateway Endpoint**, even if internet exists
-  - Test file (via null_resource)
-outputs:
-  - bucket_name
-  - bucket_arn
-```
----
-
-### 🔄 Key Differences from Console Lab
-
-| Component         | Console Method             | Terraform Approach                 |
-|-------------------|----------------------------|------------------------------------|
-| **EC2 Access**    | SSH via bastion            | **SSM-only** (no SSH keys)         |
-| **S3 Access**     | Public bucket              | **Private + endpoint policy**      |
-| **Network**       | Public/private subnets     | **Private-only** architecture      |
-| **Testing**       | Manual CLI checks          | **Auto-validated** endpoint access |
-| **Security**      | Open temporary permissions | **Least-privilege IAM/SGs**        |
-| **Access Method** | SSH with key pair          | **SSM Agent**                      |
-
 
 ---
 
-### 🚀 Deployment Steps
+### 2️⃣ `security_groups/` Module
 
-1. **Clone the repository**
+Controls traffic for EC2s and interface endpoints:
 
-   ```bash
-   git clone https://github.com/Mazdaratti/AWS_Labs
-   cd VPC_Basics_6_PrivateLink/Terraform
-   ```
+```hcl
+Resources:
+- public_ec2_sg:
+    - Allows SSH from "My IP"
+    - Allows HTTP (optional: useful for web/SSM testing)
 
-2. **Configure variables**:
-   ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit: region, allowed_ip (for SG), bucket_name
-   ```
+- private_ec2_sg:
+    - Allows SSH from public SG (for bastion jump)
+    - Allows HTTPS to endpoint (egress is open by default)
 
-3. **Initialize & deploy**:
-   ```bash
-   terraform init
-   terraform apply -auto-approve
-   ```
+- endpoint_sg:
+    - Allows HTTPS from private EC2 SG
+    - ✅ Also allows HTTPS from public EC2 SG (needed if public EC2 uses endpoint DNS)
+```
 
-4. **Connect via SSM**:
+**Outputs:**
 
-   💡 Make sure your AWS CLI is configured and authenticated (`aws configure`), and that the region matches your tfvars.
-
-   ```bash
-   aws ssm start-session --target <instance_id>
-   ```
-
-5. **Verify S3 access** (from SSM session):
-   ```bash
-   aws s3 ls s3://<bucket_name>
-   ```
----
-
-### 🧪 Testing S3 Uploads via SSM
+* `public_ec2_sg_id`
+* `private_ec2_sg_id`
+* `endpoint_sg_id`
 
 ---
 
-1. ### 🧪 Automated Test: Upload via SSM (Terraform-Driven)
+> 💡 **Why Add Public EC2 Access to Endpoint?**
+>
+> When you create a VPC Interface Endpoint (e.g., `com.amazonaws.region.ec2`) with **Private DNS enabled**, all EC2s in the VPC — public or private — will resolve AWS API domains to the **endpoint ENI**.
+>
+> That means even **public EC2s with internet access** will silently reroute requests through the endpoint.
+>
+> ✅ If you don’t allow their SG → endpoint SG traffic over **HTTPS**, those requests will **timeout**.
 
-This Terraform project includes a `null_resource` to automatically verify **S3 upload capability from the EC2 instance** via SSM after deployment.
+---
 
-It uses the `AWS-StartInteractiveCommand` SSM document to run the following on your private EC2 instance:
+> 🧠 **Pro Tip: How DNS Interception Works**
+>
+> Private DNS for Interface Endpoints overrides public DNS records **globally inside your VPC**.
+>
+> So even public EC2s might end up hitting the endpoint — make sure your **security groups are endpoint-aware**, not just subnet-aware.
+
+---
+
+### 3️⃣ `iam/` Module
+
+Assigns roles and permissions to EC2s:
+
+```hcl
+Resources:
+- public_ec2_role:
+    - AmazonS3FullAccess
+    - AmazonEC2ReadOnlyAccess
+- private_ec2_role:
+    - Same as above
+- Instance profiles for each role
+
+Outputs:
+- public_ec2_instance_profile
+- private_ec2_instance_profile
+```
+
+> 🔐 **IAM Best Practice**: Avoid hardcoding credentials. Use instance profiles so EC2s inherit permission securely.
+
+---
+
+### 4️⃣ `endpoints/` Module
+
+Implements PrivateLink for EC2 APIs and S3 access:
+
+```hcl
+Resources:
+- Interface endpoint for EC2 APIs (com.amazonaws.region.ec2)
+- Gateway endpoint for S3 (com.amazonaws.region.s3)
+- Route table entry for S3 access in private subnet
+
+Outputs:
+- ec2_endpoint_id
+- s3_endpoint_id
+```
+
+> 💡 **Pro Tip:** Gateway endpoints modify route tables. Interface endpoints add ENIs inside your subnet and need security groups.
+
+---
+
+### 5️⃣ `s3/` Module
+
+Creates a restricted-access S3 bucket:
+
+```hcl
+Resources:
+- S3 bucket
+- S3 bucket policy:
+    - Allows only:
+      • Access via VPC Endpoint
+      • IAM role from public EC2
+
+Inputs:
+- public_ec2_role_arn
+- vpc_endpoint_id
+
+Outputs:
+- bucket_name
+- bucket_arn
+```
+
+---
+
+### 6️⃣ `ec2_instances/` Module
+
+Creates and configures two EC2 instances:
+
+```hcl
+Resources:
+- public EC2:
+    - public IP enabled
+    - creates "public-upload.txt" in user data
+- private EC2:
+    - no public IP
+    - creates "private-upload.txt" in user data
+- Uses IAM instance profiles
+- Uses key pair for SSH 
+
+Outputs:
+- public_ec2_id
+- private_ec2_id
+- public_ec2_private_ip
+- private_ec2_private_ip
+```
+
+> 🧪 These files will be uploaded via `aws s3 cp` from both instances to test permissions and endpoint routing.
+
+---
+
+## 🚀 How to Deploy
+
+### 1️⃣ Clone the Project
 
 ```bash
-aws s3 cp /home/ec2-user/private-upload.txt s3://${module.s3.bucket_name}/private-upload.txt
+git clone https://github.com/Mazdaratti/AWS_Labs.git
+cd VPC_Basics_6_PrivateLink_Lab/Terraform
 ```
 
-The file is created during EC2 instance launch by user\_data.
+---
 
-#### 🧾 How It Works
+### 2️⃣ Set Your Variables
 
-The test is implemented in Terraform as:
-
-```hcl
-resource "null_resource" "s3_upload_test" {
-  triggers = {
-    instance_id = module.ec2_ssm.instance_id
-  }
-
-  provisioner "local-exec" {
-    command = <<EOT
-      aws ssm start-session \
-        --target ${module.ec2_ssm.instance_id} \
-        --document-name "AWS-StartInteractiveCommand" \
-        --parameters command='["aws s3 cp /home/ec2-user/private-upload.txt s3://${module.s3.bucket_name}/private-upload.txt"]'
-    EOT
-  }
-}
-
+```bash
+cp terraform.tfvars.example terraform.tfvars
+# Edit region, bucket_name, key_pair_name, etc.
 ```
 
-> 💡 Make sure you're running `terraform apply` from a terminal where AWS CLI is configured and authenticated.
+---
 
-#### ✅ What This Validates
+### 3️⃣ Initialize and Deploy
 
-* **SSM session access** is correctly working (IAM + Interface Endpoints)
-* **S3 Gateway Endpoint** is functioning correctly
-* **Bucket policy** allows access only from the VPC endpoint
-* EC2 instance is alive and executing user data
+```bash
+terraform init
+terraform apply -auto-approve
+```
 
 ---
 
-2. ### 🧪 Manual Test (after deployment):
+### 4️⃣ Connect to Public EC2 and SSH into Private EC2
 
-   ```bash
-   aws ssm start-session --target $(terraform output -raw instance_id)
-   # Inside session:
-   echo "Test file" > test.txt
-   aws s3 cp test.txt s3://$(terraform output -raw bucket_name)/
-   ```
----
+```bash
+ssh -A -i path/to/your-key.pem ec2-user@<public-ec2-public-ip>
+# From inside:
+ssh ec2-user@<private-ec2-private-ip>
+```
 
-### ✅ Summary & Key Takeaways
-
-You have successfully built and tested a **PrivateLink-enabled environment** using both manual console setup and Terraform IaC. This lab focused on **securing access to AWS services without using the public internet**.
-
----
-
-### 🔐 What You Learned
-
-| Area                        | What You Did                                                            |
-|-----------------------------|-------------------------------------------------------------------------|
-| **VPC Networking**          | Created isolated private subnets with no Internet Gateway               |
-| **Private EC2**             | Launched EC2 instance in private subnet without public IP or SSH access |
-| **SSM Sessions**            | Used Systems Manager for secure, agent-based shell access               |
-| **AWS PrivateLink**         | Provisioned VPC Interface Endpoints (SSM) and Gateway Endpoint (S3)     |
-| **IAM & Endpoint Policies** | Secured EC2 and S3 access to only flow through defined VPC endpoints    |
-| **S3 Testing**              | Verified endpoint routing via automated and manual upload from EC2      |
-| **S3 Security**             | Bucket policy denies all non-VPC endpoint traffic                       |
+> 💡 **Pro Tip:**
+> You can also SSH directly with jump host:
+>
+> ```bash
+> ssh -J ec2-user@<public-ec2-ip> ec2-user@<private-ec2-ip> -i path/to/key.pem
+> ```
 
 ---
 
-### 🧠 Real-World Relevance
+### 5️⃣ Upload the File to S3 from Both Instances
 
-✅ These techniques form the backbone of **enterprise-grade, internet-isolated architectures**, often used in:
-
-* Regulated environments (finance, healthcare, gov)
-* Security-hardened production networks
-* Zero-trust designs
+```bash
+aws s3 cp /home/ec2-user/public-upload.txt s3://<your-bucket-name>/
+aws s3 cp /home/ec2-user/private-upload.txt s3://<your-bucket-name>/
+```
 
 ---
 
-### 🔄 Where to Go Next
+### ✅ Final Validation Matrix
 
-* 🔁 Extend with **Interface Endpoint for EC2 API** and try `aws ec2 describe-instances`
-* 🛡️ Add **CloudWatch logging** to track SSM sessions and flow logs
-* 📦 Use **VPC Endpoint Services** to build your own SaaS over PrivateLink
-* 🧪 Integrate with **Secrets Manager** or **EFS** via endpoints
+| Action                               | Public EC2 | Private EC2        |
+|--------------------------------------|------------|--------------------|
+| Internet Access (`curl`)             | ✅          | ❌                  |
+| AWS CLI Access (`aws ec2 describe…`) | ✅          | ✅ (via endpoint)   |
+| Upload to S3 (`aws s3 cp`)           | ✅          | ✅ (via endpoint)   |
+| SSH Access                           | ✅          | ✅ (via public EC2) |
+
+> 🔍 Note: Public EC2 can use the Interface Endpoint **even though it's not in the associated subnet**, due to VPC-wide DNS override.
 
 ---
 
@@ -1299,6 +1319,39 @@ Then manually delete:
 
 * Any IAM roles if not covered by Terraform
 * S3 bucket contents if versioning or lifecycle is enabled
+
+---
+
+### ✅ Summary
+
+![Terraform](https://img.shields.io/badge/IaC-Terraform-623CE4?style=flat\&logo=terraform\&logoColor=white)
+![AWS](https://img.shields.io/badge/Platform-AWS-232F3E?style=flat\&logo=amazonaws\&logoColor=white)
+![Level](https://img.shields.io/badge/Lab-Level%3A%20Intermediate-blueviolet)
+
+In this lab, you deployed and validated a secure **PrivateLink + VPC Endpoints** setup using both the **AWS Console** and **modular Terraform**.
+
+You built a production-style infrastructure that includes:
+
+✅ A custom **VPC** with isolated public and private subnets
+✅ Two EC2 instances — a public **bastion** and a private **workload host**
+✅ IAM **roles and policies** granting scoped permissions to each EC2
+✅ A **Gateway Endpoint** for secure Amazon S3 access
+✅ An **Interface Endpoint** for EC2 API access over PrivateLink
+✅ **Tightly scoped security groups** for all components
+✅ A **private S3 bucket** accessible only via endpoint and IAM
+✅ Manual validation using AWS CLI 
+
+
+---
+
+This hands-on tutorial demonstrates real-world **cloud security design**:
+
+* How to isolate private infrastructure from the public internet
+* How to securely reach AWS services via **PrivateLink**
+* How to **build compliant networks** without NAT Gateways or IGWs
+* How to write modular, maintainable Terraform code
+
+Whether you're preparing for AWS certifications, moving toward DevOps, or building secure cloud systems, this lab provides strong foundational skills you’ll apply again and again.
 
 ---
 
