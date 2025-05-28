@@ -1,4 +1,4 @@
-output "s3_endpoint_id" {
+output "s3_gateway_id" {
   description = "ID of S3 Gateway endpoint"
   value       = aws_vpc_endpoint.s3_gateway.id
 }
