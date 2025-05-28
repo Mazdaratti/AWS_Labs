@@ -14,7 +14,6 @@ We’ll simulate both failure and success scenarios by testing connectivity:
 * Understand how VPC **interface endpoints** and **gateway endpoints** work
 * See the behavior of a **private EC2 instance without internet**
 * Learn to add **targeted access** to AWS APIs (like EC2 and S3) via PrivateLink
-* Connect to a **private EC2 using SSM** — without public IP or NAT Gateway
 
 ---
 
@@ -675,7 +674,6 @@ Follow these instructions using the **latest AWS Console UI (2025)**:
 
 4. Click **Create endpoint**
 
-T
 > ⚠️ **Note**: With **Private DNS enabled**, any EC2 in the VPC — including public instances — may attempt to use this interface endpoint.
 > If you want **both public and private EC2s** to reach the EC2 API through the endpoint, the **endpoint’s security group must allow HTTPS** from **both** EC2 security groups.
 
