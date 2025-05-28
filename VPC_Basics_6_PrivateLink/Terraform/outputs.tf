@@ -48,23 +48,13 @@ output "private_ec2_instance_profile" {
   value       = module.iam.private_ec2_instance_profile
 }
 
-output "s3_gateway_endpoint_id" {
+output "s3_gateway_id" {
   description = "ID of the S3 Gateway VPC endpoint"
-  value       = module.endpoints.s3_gateway_endpoint_id
-}
-
-output "ec2_interface_endpoint_id" {
-  description = "ID of the EC2 API Interface VPC endpoint"
-  value       = module.endpoints.ec2_interface_endpoint_id
-}
-
-output "s3_endpoint_id" {
-  description = "Gateway endpoint for S3"
-  value       = module.endpoints.s3_endpoint_id
+  value       = module.endpoints.s3_gateway_id
 }
 
 output "ec2_endpoint_id" {
-  description = "Interface endpoint for SSM"
+  description = "ID of the EC2 API Interface VPC endpoint"
   value       = module.endpoints.ec2_endpoint_id
 }
 
