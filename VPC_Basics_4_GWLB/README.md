@@ -562,6 +562,7 @@ Next: We’ll publish this Gateway Load Balancer as an **Endpoint Service**, so 
 
 In this step, you’ll  expose the Gateway Load Balancer (GWLB) to other VPCs by creating an **Endpoint Service**.
 This allows the Consumer VPC to connect to the GWLB through a Gateway Load Balancer Endpoint (GWLBe) using **PrivateLink**.
+
 ---
 
 ### 7.1 Create the Endpoint Service
