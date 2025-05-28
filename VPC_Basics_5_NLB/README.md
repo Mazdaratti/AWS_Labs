@@ -772,10 +772,6 @@ Make sure to confirm the prompt to proceed with the destruction.
 
 ---
 
-Here’s your final **✅ Summary** block for the README.md, written to match your format and tone:
-
----
-
 ### ✅ Summary
 
 In this lab, you learned how to deploy a complete **Network Load Balancer (NLB) architecture** using both the AWS Console and **modular Terraform**.
