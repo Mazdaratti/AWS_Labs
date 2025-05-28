@@ -87,6 +87,14 @@ resource "aws_security_group" "endpoint_sg" {
     security_groups = [aws_security_group.private_ec2.id]
   }
 
+  ingress {
+    description = "HTTPS from public EC2 SG"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = [aws_security_group.public_ec2.id]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
